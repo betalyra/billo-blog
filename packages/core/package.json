@@ -1,0 +1,31 @@
+{
+  "name": "@billo-blog/core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && tsc-alias",
+    "dev": "tsx --watch ./src/index.ts",
+    "drizzle:generate": "drizzle-kit generate --config src/drizzle.config.ts",
+    "test": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@paralleldrive/cuid2": "^2.2.2",
+    "arctic": "^2.2.1",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.36.0",
+    "oslo": "^1.2.1",
+    "pg": "^8.13.1",
+    "postgres": "^3.4.5"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.27.0",
+    "tsx": "^4.17.0"
+  }
+}
