@@ -68,6 +68,11 @@ export const GetBlogsResponse = PaginatedAndCounted.merge(
 );
 export type GetBlogsResponse = z.infer<typeof GetBlogsResponse>;
 
+export const CreateArticlePathParams = z.object({
+  blogId: ID,
+});
+export type CreateArticlePathParams = z.infer<typeof CreateArticlePathParams>;
+
 export const CreateArticleRequest = z.object({
   name: z.string().optional(),
   slug: z.string().optional(),
@@ -170,7 +175,7 @@ export const billoblogContract = c.router(
     createArticle: {
       method: "POST",
       path: "/blogs/:blogId/articles",
-      pathParams: GetArticlesParams,
+      pathParams: CreateArticlePathParams,
       body: CreateArticleRequest,
       responses: {
         200: CreateArticleResponse,

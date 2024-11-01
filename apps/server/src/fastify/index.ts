@@ -3,27 +3,24 @@ import Fastify from "fastify";
 import autoLoad from "@fastify/autoload";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { Effect } from "effect";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const fastify = Fastify({
-  logger: true,
-});
+const runServer = Effect.tryPromise(async () => {
+  const fastify = Fastify({
+    logger: false,
+  });
 
-await fastify.register(autoLoad, {
-  dir: join(__dirname, "plugins"),
-});
-await fastify.register(autoLoad, {
-  dir: join(__dirname, "routes"),
-});
-await fastify.ready();
-// fastify.swagger();
+  await fastify.register(autoLoad, {
+    dir: join(__dirname, "plugins"),
+  });
+  await fastify.register(autoLoad, {
+    dir: join(__dirname, "routes"),
+  });
+  await fastify.ready();
 
-// Run the server!
-try {
   await fastify.listen({ port: 7778 });
-} catch (err) {
-  fastify.log.error(err);
-  process.exit(1);
-}
+});
+export default runServer;

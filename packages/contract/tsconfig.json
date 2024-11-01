@@ -2,6 +2,8 @@
     "extends": "@total-typescript/tsconfig/tsc/no-dom/library-monorepo", // For a library in a monorepo
     "compilerOptions": {
         "outDir": "./dist", // Specify a separate output directory
-        "rootDir": "./src" // Specify the root directory of your source files
+        "rootDir": "./src", // Specify the root directory of your source files,
+        "incremental": false,
+        "composite": false
     }
 }

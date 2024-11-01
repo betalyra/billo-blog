@@ -1,9 +1,6 @@
 import { type FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
 import sensible from "@fastify/sensible";
-import pino from "pino";
-
-const logger = pino.default();
 
 /**
  * This plugins adds some utilities to handle http errors
@@ -11,6 +8,6 @@ const logger = pino.default();
  * @see https://github.com/fastify/fastify-sensible
  */
 export default fp(async function (fastify: FastifyInstance) {
-  logger.info(`Registering sensible.`);
+  fastify.log.info(`Registering sensible.`);
   fastify.register(sensible);
 });
