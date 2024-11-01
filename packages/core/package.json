@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc && tsc-alias",
     "dev": "tsx --watch ./src/index.ts",
+    "drizzle:migrate": "tsx ./src/scripts/postgres/migration.ts",
     "drizzle:generate": "drizzle-kit generate --config src/drizzle.config.ts",
     "test": "vitest"
   },
@@ -14,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@billo-blog/contract": "workspace:*",
     "@paralleldrive/cuid2": "^2.2.2",
     "arctic": "^2.2.1",
     "dotenv": "^16.4.5",

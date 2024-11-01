@@ -1,32 +1,38 @@
-import { Effect, Exit, Layer, Logger, LogLevel } from "effect";
+import { Context, Effect, Exit, Layer, Logger, LogLevel } from "effect";
 import {
   DrizzleMigrateServiceLive,
   EnvServiceLive,
   DrizzlePostgresProviderLive,
-  DrizzleMigrateService,
+  EnvService,
 } from "@billo-blog/core";
+import runServer from "./fastify/index.js";
 
-const program = Effect.gen(function* () {
-  yield* Effect.logInfo("🚚 Starting migration");
-  const migrateService = yield* DrizzleMigrateService;
-  yield* migrateService.migrate;
-  yield* Effect.logInfo("✅ Migration completed");
-});
+const program = Effect.scoped(
+  Effect.gen(function* () {
+    yield* Effect.logInfo("🪁 Starting server");
+    yield* runServer;
+    yield* Effect.logInfo("✅ Server started");
+  })
+);
 
-const run = async () => {
+const start = async () => {
   const layers = DrizzleMigrateServiceLive.pipe(
     Layer.provideMerge(
-      Layer.mergeAll(DrizzlePostgresProviderLive, Logger.pretty)
+      Layer.mergeAll(
+        DrizzlePostgresProviderLive,
+        Logger.pretty,
+        EnvServiceLive.pipe(
+          Layer.flatMap((ctx) => {
+            const logLevel = ctx.pipe(Context.get(EnvService)).LOG_LEVEL;
+            return Logger.minimumLogLevel(logLevel);
+          })
+        )
+      )
     ),
     Layer.provide(EnvServiceLive)
   );
 
-  const runnable = Effect.scoped(
-    Effect.provide(
-      program.pipe(Logger.withMinimumLogLevel(LogLevel.Info)),
-      layers
-    )
-  );
+  const runnable = Effect.scoped(Effect.provide(program, layers));
   const result = await Effect.runPromiseExit(runnable);
   if (Exit.isFailure(result)) {
     console.error(result.cause);
@@ -34,4 +40,4 @@ const run = async () => {
   }
 };
 
-await run();
+await start();

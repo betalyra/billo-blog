@@ -6,8 +6,6 @@ import { billoblogContract } from "@billo-blog/contract";
 
 import { Effect, Either, Layer, Option, pipe } from "effect";
 
-const logger = pino.default();
-
 export default fp(async function (fastify: FastifyInstance) {
   const s = initServer();
 

@@ -17,7 +17,7 @@ export const acquirePostgresClient: Effect.Effect<
   EnvService
 > = Effect.gen(function* () {
   const { POSTGRES_URL, POSTGRES_SSL_CERTIFICATE } = yield* EnvService;
-
+  yield* Effect.logDebug(`Acquiring postgres client`);
   const client = postgres(POSTGRES_URL, {
     // max: 1,
     ssl: POSTGRES_SSL_CERTIFICATE
@@ -34,7 +34,10 @@ export const acquirePostgresClient: Effect.Effect<
 export const releasePostgresClient: (
   client: postgres.Sql<{}>
 ) => Effect.Effect<void, never, never> = (client: postgres.Sql<{}>) =>
-  Effect.promise((signal) => client.end({ timeout: 1000 }));
+  Effect.gen(function* () {
+    yield* Effect.logDebug(`Releasing postgres client`);
+    yield* Effect.promise((signal) => client.end({ timeout: 1000 }));
+  });
 
 export const DrizzlePostgresProviderLive = Layer.effect(
   DrizzlePostgresProvider,
