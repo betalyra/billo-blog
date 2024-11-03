@@ -17,13 +17,12 @@ export const DrizzleMigrateServiceLive = Layer.effect(
   DrizzleMigrateService,
   Effect.gen(function* () {
     const dbResource = yield* DrizzlePostgresProvider;
-    const db = yield* dbResource.dbResource;
-    const drizzleClient = drizzle(db);
+    const db = dbResource.postgresDrizzle;
     const { MIGRATIONS_FOLDER } = yield* EnvService;
 
     const migrate: IDrizzleMigrateService["migrate"] = Effect.tryPromise(
       async () => {
-        await migrator.migrate(drizzleClient, {
+        await migrator.migrate(db, {
           migrationsFolder: MIGRATIONS_FOLDER,
         });
       }

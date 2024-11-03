@@ -3,13 +3,53 @@ import { type FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
 import pino from "pino";
 import { billoblogContract } from "@billo-blog/contract";
-
-import { Effect, Either, Layer, Option, pipe } from "effect";
+import {
+  BlogServiceLive,
+  GitHubServiceLive,
+  DrizzlePostgresProviderLive,
+  EnvServiceLive,
+  BlogService,
+} from "@billo-blog/core";
+import { Effect, Either, Layer, Logger, Option, pipe } from "effect";
 
 export default fp(async function (fastify: FastifyInstance) {
   const s = initServer();
 
+  const Dependencies = BlogServiceLive.pipe(
+    Layer.provideMerge(Layer.mergeAll(GitHubServiceLive, Logger.pretty)),
+    Layer.provideMerge(EnvServiceLive)
+  );
   const router = s.router(billoblogContract, {
+    createOAuth: async ({ params: { provider }, reply }) => {
+      const program = Effect.gen(function* () {
+        const { createOAuth } = yield* BlogService;
+        const url = yield* createOAuth({ provider });
+        return url;
+      });
+
+      const runnable = Effect.provide(
+        program,
+        Dependencies.pipe(Layer.provide(fastify.postgresDrizzle))
+      );
+      const result = await Effect.runPromise(runnable);
+      console.log(result.toString());
+      return reply.redirect(result.toString());
+    },
+    validateOAuth: async ({ params: { provider }, query }) => {
+      return {
+        status: 200,
+        body: { status: "ok" },
+      };
+    },
+    createBlog: async ({ body }) => {
+      return {
+        status: 200,
+        body: {
+          id: "1",
+          name: "Blog 1",
+        },
+      };
+    },
     getBlogs: async ({ query }) => {
       return {
         status: 200,
@@ -27,6 +67,33 @@ export default fp(async function (fastify: FastifyInstance) {
         body: {
           id: "1",
           name: "Blog 1",
+          slug: "blog-1",
+          publicId: "1",
+          created: "2021-01-01",
+        },
+      };
+    },
+    updateBlog: async ({ params: { blogId }, body }) => {
+      return {
+        status: 200,
+        body: {
+          id: "1",
+          name: "Blog 1",
+        },
+      };
+    },
+    deleteBlog: async ({ params: { blogId } }) => {
+      return {
+        status: 200,
+        body: {},
+      };
+    },
+    createArticle: async ({ params: { blogId }, body }) => {
+      return {
+        status: 200,
+        body: {
+          id: "1",
+          slug: "article-1",
         },
       };
     },
@@ -47,7 +114,7 @@ export default fp(async function (fastify: FastifyInstance) {
         body: {
           id: "1",
           slug: "article-1",
-          author: "1",
+          authors: ["1"],
           og: {
             title: "Article 1",
             description: "Article 1",
@@ -84,6 +151,21 @@ export default fp(async function (fastify: FastifyInstance) {
           },
           blocks: [],
         },
+      };
+    },
+    updateArticle: async ({ params: { blogId, articleId }, body }) => {
+      return {
+        status: 200,
+        body: {
+          id: "1",
+          slug: "article-1",
+        },
+      };
+    },
+    deleteArticle: async ({ params: { blogId, articleId } }) => {
+      return {
+        status: 200,
+        body: {},
       };
     },
   });
