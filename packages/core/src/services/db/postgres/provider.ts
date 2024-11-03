@@ -4,7 +4,7 @@ import postgres from "postgres";
 import { EnvService } from "../../env/service.js";
 
 export type IDrizzlePostgresProvider = {
-  dbResource: Effect.Effect<postgres.Sql<{}>, Error, Scope.Scope>;
+  postgresDrizzle: PostgresJsDatabase<Record<string, never>>;
 };
 
 export class DrizzlePostgresProvider extends Context.Tag(
@@ -39,17 +39,26 @@ export const releasePostgresClient: (
     yield* Effect.promise((signal) => client.end({ timeout: 1000 }));
   });
 
+export const usePostgresClient = (client: postgres.Sql<{}>) =>
+  Effect.gen(function* () {
+    const db = drizzle(client);
+    return { postgresDrizzle: db };
+  });
+
+const resource = Effect.acquireRelease(
+  acquirePostgresClient,
+  releasePostgresClient
+);
 export const DrizzlePostgresProviderLive = Layer.effect(
   DrizzlePostgresProvider,
+
   Effect.gen(function* () {
-    const envService = yield* EnvService;
+    const postgres = yield* resource;
+    const postgresDrizzle: IDrizzlePostgresProvider["postgresDrizzle"] =
+      drizzle(postgres, {
+        casing: "snake_case",
+      });
 
-    const dbResource: IDrizzlePostgresProvider["dbResource"] =
-      Effect.acquireRelease(
-        Effect.provideService(acquirePostgresClient, EnvService, envService),
-        releasePostgresClient
-      );
-
-    return { dbResource };
+    return { postgresDrizzle };
   })
 );

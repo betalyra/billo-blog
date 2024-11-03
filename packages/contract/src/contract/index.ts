@@ -26,7 +26,8 @@ export const PaginatedAndCounted = Paginated.merge(Counted);
 export type PaginatedAndCounted = z.infer<typeof PaginatedAndCounted>;
 
 export const CreateBlogRequest = z.object({
-  name: z.string(),
+  name: z.string().optional(),
+  slug: z.string().optional(),
 });
 export type CreateBlogRequest = z.infer<typeof CreateBlogRequest>;
 
@@ -50,9 +51,16 @@ export const UpdateBlogResponse = z.object({
 });
 export type UpdateBlogResponse = z.infer<typeof UpdateBlogResponse>;
 
+export const DeleteBlogPathParams = z.object({
+  blogId: ID,
+});
+export type DeleteBlogPathParams = z.infer<typeof DeleteBlogPathParams>;
+
 export const Blog = z.object({
-  id: ID,
+  publicId: ID,
+  slug: z.string().nullable(),
   name: z.string().nullable(),
+  created: z.string(),
 });
 export type Blog = z.infer<typeof Blog>;
 
@@ -109,12 +117,18 @@ export const UpdateArticleResponse = z.object({
 });
 export type UpdateArticleResponse = z.infer<typeof UpdateArticleResponse>;
 
+export const DeleteArticlePathParams = z.object({
+  blogId: ID,
+  articleId: ID,
+});
+export type DeleteArticlePathParams = z.infer<typeof DeleteArticlePathParams>;
+
 export const Article = z.object({
   id: ID,
-  slug: z.string(),
-  author: ID,
-  og: OGBasicSchema,
-  ogArticle: OGArticleSchema,
+  slug: z.string().nullable(),
+  authors: z.array(ID),
+  og: OGBasicSchema.nullable(),
+  ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block),
 });
 export type Article = z.infer<typeof Article>;
@@ -136,23 +150,46 @@ export const GetArticleParams = z.object({
 });
 export type GetArticleParams = z.infer<typeof GetArticleParams>;
 
+export const CreateOAuthPathParams = z.object({
+  provider: z.enum(["github"]),
+});
+export type CreateOAuthPathParams = z.infer<typeof CreateOAuthPathParams>;
+
+export const ValidateOAuthPathParams = CreateOAuthPathParams;
+export type ValidateOAuthPathParams = z.infer<typeof ValidateOAuthPathParams>;
+
+export const OAuthValidationQuery = z.object({
+  code: z.string(),
+});
+export type OAuthValidationQuery = z.infer<typeof OAuthValidationQuery>;
+
 export const billoblogContract = c.router(
   {
+    createOAuth: {
+      method: "GET",
+      path: "/login/oauth/:provider",
+      pathParams: CreateOAuthPathParams,
+      responses: {
+        302: z.any(),
+        404: z.any(),
+      },
+    },
+    validateOAuth: {
+      method: "GET",
+      path: "/login/oauth/:provider/validate",
+      pathParams: ValidateOAuthPathParams,
+      query: OAuthValidationQuery,
+      responses: {
+        200: z.any(),
+        401: z.any(),
+      },
+    },
     createBlog: {
       method: "POST",
       path: "/blogs",
       body: CreateBlogRequest,
       responses: {
         200: CreateBlogResponse,
-      },
-    },
-    updateBlog: {
-      method: "PUT",
-      path: "/blogs/:blogId",
-      pathParams: UpdateBlogPathParams,
-      body: UpdateBlogRequest,
-      responses: {
-        200: UpdateBlogResponse,
       },
     },
     getBlogs: {
@@ -172,6 +209,23 @@ export const billoblogContract = c.router(
         404: z.any(),
       },
     },
+    updateBlog: {
+      method: "PUT",
+      path: "/blogs/:blogId",
+      pathParams: UpdateBlogPathParams,
+      body: UpdateBlogRequest,
+      responses: {
+        200: UpdateBlogResponse,
+      },
+    },
+    deleteBlog: {
+      method: "DELETE",
+      path: "/blogs/:blogId",
+      pathParams: DeleteBlogPathParams,
+      responses: {
+        200: z.any(),
+      },
+    },
     createArticle: {
       method: "POST",
       path: "/blogs/:blogId/articles",
@@ -179,15 +233,6 @@ export const billoblogContract = c.router(
       body: CreateArticleRequest,
       responses: {
         200: CreateArticleResponse,
-      },
-    },
-    updateArticle: {
-      method: "PUT",
-      path: "/blogs/:blogId/articles/:articleId",
-      pathParams: UpdateArticlePathParams,
-      body: UpdateArticleRequest,
-      responses: {
-        200: UpdateArticleResponse,
       },
     },
     getArticles: {
@@ -206,6 +251,23 @@ export const billoblogContract = c.router(
       responses: {
         200: Article,
         404: z.any(),
+      },
+    },
+    updateArticle: {
+      method: "PUT",
+      path: "/blogs/:blogId/articles/:articleId",
+      pathParams: UpdateArticlePathParams,
+      body: UpdateArticleRequest,
+      responses: {
+        200: UpdateArticleResponse,
+      },
+    },
+    deleteArticle: {
+      method: "DELETE",
+      path: "/blogs/:blogId/articles/:articleId",
+      pathParams: DeleteArticlePathParams,
+      responses: {
+        200: z.any(),
       },
     },
   },

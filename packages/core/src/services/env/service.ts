@@ -2,6 +2,11 @@ import { Context, Effect, Layer, Logger, LogLevel, Match } from "effect";
 import { z } from "zod";
 
 export const IEnv = z.object({
+  HOST: z.string().optional().default("localhost"),
+  PORT: z.number().optional().default(31337),
+  SESSION_SECRET: z.string(),
+  SESSION_COOKIE_URL: z.string().url(),
+  SESSION_COOKIE_SECURE: z.boolean().optional().default(true),
   POSTGRES_URL: z.string().url(),
   POSTGRES_SSL_CERTIFICATE: z.string().optional(),
   MIGRATIONS_FOLDER: z.string().optional().default("../../migrations/postgres"),
@@ -19,6 +24,13 @@ export const IEnv = z.object({
     .optional()
     .default("Info")
     .transform(LogLevel.fromLiteral),
+  SIGNUP_ALLOWED: z
+    .enum(["all", "none", "invite"])
+    .optional()
+    .default("invite"),
+  GITHUB_CLIENT_ID: z.string(),
+  GITHUB_CLIENT_SECRET: z.string(),
+  GITHUB_REDIRECT_URI: z.string().url(),
 });
 export type IEnv = z.infer<typeof IEnv>;
 

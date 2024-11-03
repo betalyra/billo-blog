@@ -114,6 +114,9 @@ importers:
       drizzle-orm:
         specifier: ^0.36.0
         version: 0.36.0(@types/pg@8.11.10)(pg@8.13.1)(postgres@3.4.5)
+      js-cookie:
+        specifier: ^3.0.5
+        version: 3.0.5
       oslo:
         specifier: ^1.2.1
         version: 1.2.1
@@ -1534,6 +1537,10 @@ packages:
   jackspeak@4.0.2:
     resolution: {integrity: sha512-bZsjR/iRjl1Nk1UkjGpAzLNfQtzuijhn2g+pbZb98HQ1Gk8vM9hfbxeMBP+M2/UUdwj0RqGG3mlvk2MsAqwvEw==}
     engines: {node: 20 || >=22}
+
+  js-cookie@3.0.5:
+    resolution: {integrity: sha512-cEiJEAEoIbWfCZYKWhVwFuvPX1gETRYPw6LlaTKoxD3s2AkXzkCjnp6h0V77ozyqj0jakteJ4YqDJT830+lVGw==}
+    engines: {node: '>=14'}
 
   json-schema-ref-resolver@1.0.1:
     resolution: {integrity: sha512-EJAj1pgHc1hxF6vo2Z3s69fMjO1INq6eGHXZ8Z6wCQeldCuwxGK9Sxf4/cScGn3FZubCVUehfWtcDM/PLteCQw==}
@@ -3169,6 +3176,8 @@ snapshots:
   jackspeak@4.0.2:
     dependencies:
       '@isaacs/cliui': 8.0.2
+
+  js-cookie@3.0.5: {}
 
   json-schema-ref-resolver@1.0.1:
     dependencies:

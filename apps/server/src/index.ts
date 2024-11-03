@@ -9,9 +9,7 @@ import runServer from "./fastify/index.js";
 
 const program = Effect.scoped(
   Effect.gen(function* () {
-    yield* Effect.logInfo("🪁 Starting server");
     yield* runServer;
-    yield* Effect.logInfo("✅ Server started");
   })
 );
 
@@ -29,7 +27,7 @@ const start = async () => {
         )
       )
     ),
-    Layer.provide(EnvServiceLive)
+    Layer.provideMerge(EnvServiceLive)
   );
 
   const runnable = Effect.scoped(Effect.provide(program, layers));
