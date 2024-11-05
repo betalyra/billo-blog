@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc && tsc-alias",
-    "dev": "tsx --watch ./src/index.ts",
+    "dev": "tsx --watch ./src/index.ts && tsc-alias",
     "drizzle:migrate": "tsx ./src/scripts/postgres/migration.ts",
     "drizzle:generate": "drizzle-kit generate --config src/drizzle.config.ts",
     "test": "vitest"
@@ -16,6 +16,8 @@
   "license": "ISC",
   "dependencies": {
     "@billo-blog/contract": "workspace:*",
+    "@oslojs/crypto": "^1.0.1",
+    "@oslojs/encoding": "^1.1.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "arctic": "^2.2.1",
     "dotenv": "^16.4.5",
@@ -27,6 +29,7 @@
   },
   "type": "module",
   "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
     "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.27.0",
     "tsx": "^4.17.0"

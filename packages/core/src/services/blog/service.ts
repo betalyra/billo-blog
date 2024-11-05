@@ -1,4 +1,4 @@
-import { Context, Layer, Effect } from "effect";
+import { Context, Layer, Effect, Option } from "effect";
 import {
   Blog,
   Article,
@@ -20,18 +20,25 @@ import {
   ValidateOAuthPathParams,
 } from "@billo-blog/contract";
 import { DrizzlePostgresProvider } from "../db/postgres/provider.js";
-import { BlogTable, type User } from "../../db/postgres/schema.js";
+import { BlogTable, type Session } from "../../db/postgres/schema.js";
 import { GitHubService } from "../oauth/github.js";
 import { generateState } from "arctic";
-import Cookies from "js-cookie";
 import { EnvService } from "../env/service.js";
+import { UserService } from "../user/service.js";
+import { SessionService, type SessionWithUser } from "../../session/service.js";
 
+export type CreateOAuthResponse = {
+  url: URL;
+  state: string;
+};
 export type IBlogService = {
-  createOAuth: (pathParams: CreateOAuthPathParams) => Effect.Effect<URL, Error>;
+  createOAuth: (
+    pathParams: CreateOAuthPathParams
+  ) => Effect.Effect<CreateOAuthResponse, Error>;
   validateOAuth: (
     pathParams: ValidateOAuthPathParams,
     query: OAuthValidationQuery
-  ) => Effect.Effect<void, Error>;
+  ) => Effect.Effect<Session, Error>;
   createBlog: (body: CreateBlogRequest) => Effect.Effect<Blog, Error>;
   getBlogs: (query: Paginated) => Effect.Effect<Blog[], Error>;
   getBlog: (pathParams: GetBlogPathParams) => Effect.Effect<Blog, Error>;
@@ -69,40 +76,45 @@ export const BlogServiceLive = Layer.effect(
     const { postgresDrizzle } = yield* DrizzlePostgresProvider;
     const { SESSION_SECRET, SESSION_COOKIE_URL, SESSION_COOKIE_SECURE } =
       yield* EnvService;
-    const { createAuthorizationURL, validateAuthorizationCode } =
-      yield* GitHubService;
+    const githubService = yield* GitHubService;
+    const userService = yield* UserService;
+    const sessionService = yield* SessionService;
 
     const createOAuth: IBlogService["createOAuth"] = (pathParams) =>
       Effect.gen(function* () {
         const state = generateState();
-        const url = yield* createAuthorizationURL("state", ["user:email"]);
-        // {
-        //     name: SESSION_COOKIE_NAME,
-        //     domain: SITE_URL.split("://")[1],
-        //     httpOnly: true,
-        //     maxAge: 60 * 60 * 24 * 30, // 30 days
-        //     path: "/",
-        //     sameSite: "lax",
-        //     secrets: [SESSION_SECRET],
-        //     secure: process.env.NODE_ENV === "production",
-        //   },
-        Cookies.set("state", state, {
-          domain: SESSION_COOKIE_URL.split("://")[1],
-          httpOnly: true,
-          maxAge: 60 * 60 * 24 * 30, // 30 days
-          path: "/",
-          sameSite: "lax",
-          secure: SESSION_COOKIE_SECURE,
-        });
-
-        return url;
+        const url = yield* githubService.createAuthorizationURL(state, [
+          "user:email",
+        ]);
+        return {
+          url,
+          state,
+        };
       });
+
     const validateOAuth: IBlogService["validateOAuth"] = (pathParams, query) =>
       Effect.gen(function* () {
-        const validation = yield* validateAuthorizationCode(query.code);
-
-        return;
+        yield* Effect.logDebug(`Validating OAuth...`);
+        const oauth2Tokens = yield* githubService.validateAuthorizationCode(
+          query.code
+        );
+        yield* Effect.logDebug(`Getting GitHub user...`);
+        const githubUser = yield* githubService.getGitHubUser(oauth2Tokens);
+        yield* Effect.logDebug(`Getting user by GitHub ID...`);
+        const user = yield* userService.getUserByGitHubId(githubUser);
+        if (Option.isNone(user)) {
+          yield* Effect.logDebug(`User does not exist, creating...`);
+          const newUser = yield* userService.createUserFromGitHub(githubUser);
+          yield* Effect.logDebug(`Creating session...`);
+          const session = yield* sessionService.createSession(newUser.id);
+          return session;
+        } else {
+          yield* Effect.logDebug(`User already exists, creating session...`);
+          const session = yield* sessionService.createSession(user.value.id);
+          return session;
+        }
       });
+
     const getBlogs: IBlogService["getBlogs"] = (query) =>
       Effect.fail(new Error("Not implemented"));
     const getBlog: IBlogService["getBlog"] = (pathParams) =>

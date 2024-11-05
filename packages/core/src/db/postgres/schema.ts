@@ -17,7 +17,7 @@ export const schema = pgSchema("billo_blog");
 export const UserTable = schema.table("user", {
   id: bigserial({ mode: "number" }).primaryKey(),
   publicId: text().unique().notNull().$defaultFn(createId),
-  email: text().unique().notNull(),
+  email: text().unique(),
   emailVerified: boolean().notNull().default(false),
   status: text().notNull().default("active"),
   lastSignInAt: timestamp({ withTimezone: true }),
@@ -48,6 +48,7 @@ export const OAuthAccountTable = schema.table("oauth_account", {
     .references(() => UserTable.id, { onDelete: "cascade" }),
   provider: text().notNull(),
   providerAccountId: text().notNull(),
+
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

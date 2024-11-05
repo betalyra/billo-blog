@@ -10,7 +10,7 @@ import type { GitHubUser } from "../oauth/github.js";
 import { DrizzlePostgresProvider } from "../db/postgres/provider.js";
 
 export type IUserService = {
-  getUserById: (userId: number) => Effect.Effect<User, Error>;
+  getUserById: (userId: number) => Effect.Effect<Option.Option<User>, Error>;
   getUserByGitHubId(
     gitHubUser: GitHubUser
   ): Effect.Effect<Option.Option<User>, Error>;
@@ -28,38 +28,50 @@ export const UserServiceLive = Layer.effect(
     const { postgresDrizzle } = yield* DrizzlePostgresProvider;
 
     const getUserById: IUserService["getUserById"] = (userId) =>
-      Effect.tryPromise(async () => {
-        const user = await postgresDrizzle
-          .select()
-          .from(UserTable)
-          .where(eq(UserTable.id, userId))
-          .limit(1);
+      Effect.gen(function* () {
+        yield* Effect.logDebug(`Getting user by id: ${userId}`);
+        const user = yield* Effect.tryPromise(() =>
+          postgresDrizzle
+            .select()
+            .from(UserTable)
+            .where(eq(UserTable.id, userId))
+            .limit(1)
+        );
+        yield* Effect.logDebug(`Got user.`);
         if (!user || user.length == 0) {
-          return Effect.fail(new Error("User not found"));
+          return Effect.succeed(Option.none());
         }
-        return Effect.succeed(user[0]!);
+        return Effect.succeed(Option.some(user[0]!));
       }).pipe(Effect.flatten);
 
     const getUserByGitHubId: IUserService["getUserByGitHubId"] = (githubUser) =>
-      Effect.tryPromise(async () => {
-        const user = await postgresDrizzle
-          .select({
-            user: UserTable,
-            oauthAccount: OAuthAccountTable,
-          })
-          .from(UserTable)
-          .innerJoin(
-            OAuthAccountTable,
-            eq(UserTable.id, OAuthAccountTable.userId)
-          )
-          .where(
-            and(
-              eq(OAuthAccountTable.provider, "github"),
-              eq(OAuthAccountTable.providerAccountId, githubUser.id)
+      Effect.gen(function* () {
+        yield* Effect.logDebug(
+          `Getting user by GitHub id: ${githubUser.id.toString()}`
+        );
+        const user = yield* Effect.tryPromise(() =>
+          postgresDrizzle
+            .select({
+              user: UserTable,
+              oauthAccount: OAuthAccountTable,
+            })
+            .from(UserTable)
+            .innerJoin(
+              OAuthAccountTable,
+              eq(UserTable.id, OAuthAccountTable.userId)
             )
-          )
-          .execute();
-
+            .where(
+              and(
+                eq(OAuthAccountTable.provider, "github"),
+                eq(
+                  OAuthAccountTable.providerAccountId,
+                  githubUser.id.toString()
+                )
+              )
+            )
+            .execute()
+        );
+        yield* Effect.logDebug(`Got user.`);
         if (!user || user.length == 0) {
           return Effect.succeed(Option.none());
         }
@@ -81,7 +93,7 @@ export const UserServiceLive = Layer.effect(
               .insert(UserTable)
               .values({
                 email: email,
-                emailVerified: true, // Assuming LinkedIn provides verified emails
+                emailVerified: false,
               })
               .returning();
 
@@ -89,7 +101,7 @@ export const UserServiceLive = Layer.effect(
             await tx.insert(OAuthAccountTable).values({
               userId: user!.id,
               provider: "github",
-              providerAccountId: githubUser.id,
+              providerAccountId: githubUser.id.toString(),
             });
 
             return user;
