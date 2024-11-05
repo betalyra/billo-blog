@@ -8,6 +8,20 @@
       "when": 1730802378455,
       "tag": "0000_outstanding_warstar",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1730836762361,
+      "tag": "0001_legal_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1730838908215,
+      "tag": "0002_burly_doorman",
+      "breakpoints": true
     }
   ]
 }

@@ -154,16 +154,33 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result,
       };
     },
-    getBlog: async ({ params: { blogId } }) => {
+    getBlog: async ({ params: { blogId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getBlog } = yield* BlogService;
+        return yield* getBlog({ blogId });
+      });
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Option.isNone(result)) {
+        return { status: 404, body: { error: "Blog not found" } };
+      }
+
       return {
         status: 200,
-        body: {
-          id: "1",
-          name: "Blog 1",
-          slug: "blog-1",
-          publicId: "1",
-          created: "2021-01-01",
-        },
+        body: result.value,
       };
     },
     updateBlog: async ({ params: { blogId }, body }) => {
@@ -206,68 +223,87 @@ export default fp(async function (fastify: FastifyInstance) {
         body: { publicId: result.publicId },
       };
     },
-    getArticles: async ({ params: { blogId }, query: { limit, page } }) => {
+    getArticles: async ({
+      params: { blogId },
+      query: { limit, page },
+      request,
+    }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getArticles } = yield* BlogService;
+        return yield* getArticles({ blogId }, { limit, page });
+      });
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
       return {
         status: 200,
-        body: {
-          articles: [],
-          count: 0,
-          page: 0,
-          limit: 0,
-        },
+        body: result,
       };
     },
-    getArticle: async ({ params: { blogId, articleId } }) => {
+    getArticle: async ({ params: { blogId, articleId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getArticle } = yield* BlogService;
+        return yield* getArticle({ blogId, articleId });
+      });
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Option.isNone(result)) {
+        return { status: 404, body: { error: "Article not found" } };
+      }
+
       return {
         status: 200,
-        body: {
-          publicId: "1",
-          slug: "article-1",
-          authors: ["1"],
-          og: {
-            title: "Article 1",
-            description: "Article 1",
-            image: "https://example.com/image.jpg",
-            url: "https://example.com/article-1",
-            type: "article",
-            siteName: "Site 1",
-            locale: "en-US",
-          },
-          ogArticle: {
-            type: "article",
-            title: "Article 1",
-            description: "Article 1",
-            image: "https://example.com/image.jpg",
-            url: "https://example.com/article-1",
-            siteName: "Site 1",
-            publishedTime: "2021-01-01",
-            modifiedTime: "2021-01-01",
-            expirationTime: "2021-01-01",
-            author: [
-              {
-                name: "Author 1",
-                profileUrl: "https://example.com/author-1",
-                socialProfiles: [
-                  {
-                    platform: "twitter",
-                    url: "https://example.com/author-1",
-                  },
-                ],
-              },
-            ],
-            section: "1",
-            tag: ["1"],
-          },
-          blocks: [],
-        },
+        body: result.value,
       };
     },
-    updateArticle: async ({ params: { blogId, articleId }, body }) => {
+    updateArticle: async ({ params: { blogId, articleId }, body, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { updateArticle } = yield* BlogService;
+        return yield* updateArticle({ blogId, articleId }, body);
+      });
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
       return {
         status: 200,
-        body: {
-          publicId: "1",
-        },
+        body: result,
       };
     },
     deleteArticle: async ({ params: { blogId, articleId } }) => {

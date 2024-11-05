@@ -130,6 +130,7 @@ export type DeleteArticlePathParams = z.infer<typeof DeleteArticlePathParams>;
 export const Article = z.object({
   publicId: ID,
   slug: z.string().nullable(),
+  name: z.string().nullable(),
   authors: z.array(ID),
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
@@ -147,7 +148,7 @@ export const GetArticlesResponse = PaginatedAndCounted.merge(
     articles: z.array(Article),
   })
 );
-
+export type GetArticlesResponse = z.infer<typeof GetArticlesResponse>;
 export const GetArticleParams = z.object({
   blogId: ID,
   articleId: ID,

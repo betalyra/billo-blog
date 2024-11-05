@@ -31,6 +31,16 @@ export const IEnv = z.object({
   GITHUB_CLIENT_ID: z.string(),
   GITHUB_CLIENT_SECRET: z.string(),
   GITHUB_REDIRECT_URI: z.string().url(),
+  ARTICLE_UPDATE_INTERVAL: z
+    .number()
+    .int()
+    .min(1)
+    .max(60 * 60)
+    .optional()
+    .default(120)
+    .describe(
+      "Update interval with which new versions of articles are created"
+    ),
 });
 export type IEnv = z.infer<typeof IEnv>;
 
