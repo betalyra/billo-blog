@@ -12,14 +12,15 @@ export type SessionWithUser = {
   session: Session;
   user: User;
 };
+export type SessionToken = string;
 export type ISessionService = {
   validateSessionToken: (
     token: string
   ) => Effect.Effect<Option.Option<SessionWithUser>, Error>;
   invalidateSession: (sessionId: string) => Effect.Effect<void, Error>;
   invalidateUserSessions: (userId: number) => Effect.Effect<void, Error>;
-  generateSessionToken: () => Effect.Effect<string, never>;
-  createSession: (userId: number) => Effect.Effect<Session, Error>;
+  generateSessionToken: () => Effect.Effect<SessionToken, never>;
+  createSession: (userId: number) => Effect.Effect<SessionToken, Error>;
 };
 
 export class SessionService extends Context.Tag("SessionService")<
@@ -40,7 +41,7 @@ export const SessionServiceLive = Layer.effect(
           sha256(new TextEncoder().encode(token))
         );
 
-        const session = yield* Effect.tryPromise(() =>
+        const sessionData = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
             .from(SessionTable)
@@ -50,18 +51,18 @@ export const SessionServiceLive = Layer.effect(
             .execute()
         );
 
-        if (!session || session.length === 0) {
+        if (!sessionData || sessionData.length === 0) {
           return Option.none<SessionWithUser>();
         }
 
-        const sessionData = session[0]!;
+        const { session, user } = sessionData[0]!;
 
         // Check if expired
-        if (Date.now() >= sessionData.session.expiresAt.getTime()) {
+        if (Date.now() >= session.expiresAt.getTime()) {
           yield* Effect.tryPromise(() =>
             postgresDrizzle
               .delete(SessionTable)
-              .where(eq(SessionTable.id, sessionData.session.id))
+              .where(eq(SessionTable.id, session.id))
               .execute()
           );
           return Option.none<SessionWithUser>();
@@ -70,20 +71,20 @@ export const SessionServiceLive = Layer.effect(
         // Refresh if close to expiry
         if (
           Date.now() >=
-          sessionData.session.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15
+          session.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15
         ) {
           const newExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
           yield* Effect.tryPromise(() =>
             postgresDrizzle
               .update(SessionTable)
               .set({ expiresAt: newExpiresAt })
-              .where(eq(SessionTable.id, sessionData.session.id))
+              .where(eq(SessionTable.id, session.id))
               .execute()
           );
-          sessionData.session.expiresAt = newExpiresAt;
+          session.expiresAt = newExpiresAt;
         }
 
-        return Option.some(sessionData);
+        return Option.some({ session, user });
       });
 
     const invalidateSession: ISessionService["invalidateSession"] = (
@@ -115,9 +116,9 @@ export const SessionServiceLive = Layer.effect(
 
     const createSession: ISessionService["createSession"] = (userId) =>
       Effect.gen(function* () {
-        const token = yield* generateSessionToken();
+        const sessionToken = yield* generateSessionToken();
         const sessionId = encodeHexLowerCase(
-          sha256(new TextEncoder().encode(token))
+          sha256(new TextEncoder().encode(sessionToken))
         );
 
         const session = {
@@ -134,7 +135,7 @@ export const SessionServiceLive = Layer.effect(
           return Effect.fail(new Error("Failed to create session"));
         }
 
-        return Effect.succeed(createdSession[0]!);
+        return Effect.succeed(sessionToken);
       }).pipe(Effect.flatten);
 
     return {

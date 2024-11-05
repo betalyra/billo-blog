@@ -12,6 +12,7 @@ const generateConfig = () => {
       table: "journal",
       schema: "billo",
     },
+    casing: "snake_case",
   });
 };
 const config = generateConfig();

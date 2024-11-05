@@ -11,40 +11,34 @@ const __dirname = dirname(__filename);
 
 declare module "fastify" {
   interface FastifyInstance {
-    postgresDrizzle: Layer.Layer<DrizzlePostgresProvider, never, never>;
     env: IEnv;
   }
 }
-const runServer = Effect.gen(function* () {
-  const { postgresDrizzle } = yield* DrizzlePostgresProvider;
-  const env = yield* EnvService;
-  yield* Effect.logInfo("Starting server...");
-  yield* Effect.tryPromise(async () => {
-    const fastify = Fastify({
-      logger: false,
-    });
-
-    fastify.decorate(
-      "postgresDrizzle",
-      Layer.succeed(DrizzlePostgresProvider)({ postgresDrizzle })
-    );
-    fastify.decorate("env", env);
-    await fastify.register(autoLoad, {
-      dir: join(__dirname, "plugins"),
-    });
-    await fastify.register(autoLoad, {
-      dir: join(__dirname, "routes"),
-    });
-    // Register parent error handler
-    fastify.setErrorHandler((error, request, reply) => {
-      fastify.log.error(error);
-      console.error(error);
-      reply.status(500).send({ ok: false });
-    });
-    await fastify.ready();
-
-    await fastify.listen({ port: env.PORT, host: env.HOST });
+const init = async () => {
+  const env = IEnv.safeParse(process.env);
+  if (!env.success) {
+    throw new Error(env.error.message);
+  }
+  const fastify = Fastify({
+    logger: true,
   });
-  yield* Effect.logInfo(`🪁 Server started on ${env.HOST}:${env.PORT}`);
-});
-export default runServer;
+
+  fastify.decorate("env", env.data);
+  await fastify.register(autoLoad, {
+    dir: join(__dirname, "plugins"),
+  });
+  await fastify.register(autoLoad, {
+    dir: join(__dirname, "routes"),
+  });
+  // Register parent error handler
+  fastify.setErrorHandler((error, request, reply) => {
+    fastify.log.error(error);
+    console.error(error);
+    reply.status(500).send({ ok: false });
+  });
+  await fastify.ready();
+
+  await fastify.listen({ port: env.data.PORT, host: env.data.HOST });
+  fastify.log.info(`🪁 Server started on ${env.data.HOST}:${env.data.PORT}`);
+};
+export default init;

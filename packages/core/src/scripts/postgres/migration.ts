@@ -1,36 +1,34 @@
-import { Effect, Exit, Layer, Logger, LogLevel } from "effect";
-import { DrizzleMigrateServiceLive } from "../../services/db/postgres/migrate.js";
-import { DrizzleMigrateService } from "../../services/db/postgres/migrate.js";
-import { DrizzlePostgresProviderLive } from "../../services/db/postgres/provider.js";
-import { EnvServiceLive } from "../../services/env/service.js";
+import * as migrator from "drizzle-orm/postgres-js/migrator";
+import { drizzle } from "drizzle-orm/postgres-js";
+import invariant from "tiny-invariant";
+import postgres from "postgres";
 
-const program = Effect.scoped(
-  Effect.gen(function* () {
-    yield* Effect.logInfo("🚚 Starting migration");
-    const migrateService = yield* DrizzleMigrateService;
-    yield* migrateService.migrate;
-    yield* Effect.logInfo("✅ Migration completed");
-  })
-);
+const MIGRATIONS_FOLDER =
+  process.env.MIGRATIONS_FOLDER ?? "../../migrations/postgres";
+
+const POSTGRES_URL = process.env.POSTGRES_URL;
+invariant(POSTGRES_URL, "POSTGRES_URL is required");
+
+const POSTGRES_SSL_CERTIFICATE = process.env.POSTGRES_SSL_CERTIFICATE;
 
 const run = async () => {
-  const layers = DrizzleMigrateServiceLive.pipe(
-    Layer.provideMerge(
-      Layer.mergeAll(
-        DrizzlePostgresProviderLive,
-        Logger.pretty,
-        Logger.minimumLogLevel(LogLevel.Info)
-      )
-    ),
-    Layer.provide(EnvServiceLive)
-  );
-
-  const runnable = Effect.scoped(Effect.provide(program, layers));
-  const result = await Effect.runPromiseExit(runnable);
-  if (Exit.isFailure(result)) {
-    console.error(result.cause);
-    process.exit(1);
-  }
+  const client = postgres(POSTGRES_URL, {
+    // max: 1,
+    ssl: POSTGRES_SSL_CERTIFICATE
+      ? {
+          mode: "verify-ca",
+          sslrootcert: Buffer.from(POSTGRES_SSL_CERTIFICATE, "base64"),
+          rejectUnauthorized: false,
+        }
+      : false,
+  });
+  const db = drizzle(client, {
+    casing: "snake_case",
+  });
+  await migrator.migrate(db, {
+    migrationsFolder: MIGRATIONS_FOLDER,
+  });
+  client.end();
 };
 
 await run();

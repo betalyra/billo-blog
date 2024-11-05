@@ -56,7 +56,7 @@ export const OAuthAccountTable = schema.table("oauth_account", {
 export type OAuthAccount = typeof OAuthAccountTable.$inferSelect;
 export type InsertOAuthAccount = typeof OAuthAccountTable.$inferInsert;
 
-export const TokenPermissionEnum = pgEnum("token_permission", [
+export const TokenPermissionEnum = schema.enum("token_permission", [
   "read",
   "write",
 ]);

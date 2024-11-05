@@ -7,16 +7,41 @@ import {
   GitHubServiceLive,
   EnvServiceLive,
   BlogService,
+  DrizzlePostgresProviderLive,
+  DrizzlePostgresProvider,
 } from "@billo-blog/core";
 import { fastifyCookie } from "@fastify/cookie";
 
-import { Effect, Layer, Logger } from "effect";
+import { Effect, Either, Layer, Logger, Option } from "effect";
 import { SessionServiceLive } from "@billo-blog/core/dist/session/service.js";
 import { UserServiceLive } from "@billo-blog/core/dist/services/user/service.js";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { JWTServiceLive } from "@billo-blog/core/dist/services/auth/token.js";
+import { TokenProvider } from "@billo-blog/core/dist/services/auth/token-provider.js";
+import { BlogStoreServiceLive } from "@billo-blog/core/dist/services/store/blog/service.js";
 
 export default fp(async function (fastify: FastifyInstance) {
   const s = initServer();
-
+  const client = postgres(fastify.env.POSTGRES_URL, {
+    // max: 1,
+    ssl: fastify.env.POSTGRES_SSL_CERTIFICATE
+      ? {
+          mode: "verify-ca",
+          sslrootcert: Buffer.from(
+            fastify.env.POSTGRES_SSL_CERTIFICATE,
+            "base64"
+          ),
+          rejectUnauthorized: false,
+        }
+      : false,
+  });
+  const postgresDrizzle = drizzle(client, {
+    casing: "snake_case",
+  });
+  const PostgresProvider = Layer.succeed(DrizzlePostgresProvider)({
+    postgresDrizzle,
+  });
   const Dependencies = BlogServiceLive.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
@@ -24,10 +49,13 @@ export default fp(async function (fastify: FastifyInstance) {
         Logger.pretty,
         Logger.minimumLogLevel(fastify.env.LOG_LEVEL),
         SessionServiceLive,
-        UserServiceLive
+        UserServiceLive,
+        JWTServiceLive,
+        BlogStoreServiceLive
       )
     ),
-    Layer.provideMerge(Layer.mergeAll(EnvServiceLive, fastify.postgresDrizzle))
+    Layer.provideMerge(PostgresProvider),
+    Layer.provideMerge(EnvServiceLive)
   );
   const router = s.router(billoblogContract, {
     createOAuth: async ({ params: { provider }, reply }) => {
@@ -40,7 +68,7 @@ export default fp(async function (fastify: FastifyInstance) {
       const result = await Effect.runPromise(runnable);
 
       const cookie = fastifyCookie.serialize("state", result.state, {
-        maxAge: 60_000,
+        maxAge: 60 * 5,
         httpOnly: true,
         secure: fastify.env.SESSION_COOKIE_SECURE,
         sameSite: "lax",
@@ -72,34 +100,58 @@ export default fp(async function (fastify: FastifyInstance) {
       const runnable = Effect.provide(program, Dependencies);
       const result = await Effect.runPromise(runnable);
 
-      const cookie = fastifyCookie.serialize("session", result.id, {
-        maxAge: 60_000,
-        httpOnly: true,
-        secure: fastify.env.SESSION_COOKIE_SECURE,
-        sameSite: "lax",
-        path: "/",
-        domain: fastify.env.SESSION_COOKIE_URL?.split("://")[1],
-      });
-      return reply.header("Set-Cookie", cookie).send({ status: "ok", cookie });
+      return { status: 200, body: result };
     },
-    createBlog: async ({ body }) => {
+    createBlog: async ({ body, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { createBlog } = yield* BlogService;
+        return yield* createBlog(body);
+      });
+
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
       return {
         status: 200,
-        body: {
-          id: "1",
-          name: "Blog 1",
-        },
+        body: { publicId: result.publicId },
       };
     },
-    getBlogs: async ({ query }) => {
+    getBlogs: async ({ query, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getBlogs } = yield* BlogService;
+        return yield* getBlogs(query);
+      });
+
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
       return {
         status: 200,
-        body: {
-          blogs: [],
-          count: 0,
-          page: 0,
-          limit: 0,
-        },
+        body: result,
       };
     },
     getBlog: async ({ params: { blogId } }) => {
@@ -118,8 +170,7 @@ export default fp(async function (fastify: FastifyInstance) {
       return {
         status: 200,
         body: {
-          id: "1",
-          name: "Blog 1",
+          publicId: "1",
         },
       };
     },
@@ -129,13 +180,30 @@ export default fp(async function (fastify: FastifyInstance) {
         body: {},
       };
     },
-    createArticle: async ({ params: { blogId }, body }) => {
+    createArticle: async ({ params: { blogId }, body, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { createArticle } = yield* BlogService;
+        return yield* createArticle({ blogId }, body);
+      });
+
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
       return {
         status: 200,
-        body: {
-          id: "1",
-          slug: "article-1",
-        },
+        body: { publicId: result.publicId },
       };
     },
     getArticles: async ({ params: { blogId }, query: { limit, page } }) => {
@@ -153,7 +221,7 @@ export default fp(async function (fastify: FastifyInstance) {
       return {
         status: 200,
         body: {
-          id: "1",
+          publicId: "1",
           slug: "article-1",
           authors: ["1"],
           og: {
@@ -198,8 +266,7 @@ export default fp(async function (fastify: FastifyInstance) {
       return {
         status: 200,
         body: {
-          id: "1",
-          slug: "article-1",
+          publicId: "1",
         },
       };
     },

@@ -7,7 +7,7 @@ import { billoblogContract } from "@billo-blog/contract";
 import { generateOpenApi } from "@ts-rest/open-api";
 
 export default fp(async function (fastify: FastifyInstance) {
-  fastify.log.info(`Registering openapi.`);
+  fastify.log.info(`🌍 Registering openapi.`);
 
   // const logo = await fs.readFile(`./logo.png`);
   const openApiDocument = generateOpenApi(billoblogContract, {
