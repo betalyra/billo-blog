@@ -6,7 +6,7 @@ export const IEnv = z.object({
   PORT: z.number().optional().default(31337),
   SESSION_SECRET: z.string(),
   SESSION_COOKIE_URL: z.string().url(),
-  SESSION_COOKIE_SECURE: z.boolean().optional().default(true),
+  SESSION_COOKIE_SECURE: z.coerce.boolean().optional().default(true),
   POSTGRES_URL: z.string().url(),
   POSTGRES_SSL_CERTIFICATE: z.string().optional(),
   MIGRATIONS_FOLDER: z.string().optional().default("../../migrations/postgres"),

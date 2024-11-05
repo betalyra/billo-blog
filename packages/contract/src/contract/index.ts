@@ -160,6 +160,7 @@ export type ValidateOAuthPathParams = z.infer<typeof ValidateOAuthPathParams>;
 
 export const OAuthValidationQuery = z.object({
   code: z.string(),
+  state: z.string(),
 });
 export type OAuthValidationQuery = z.infer<typeof OAuthValidationQuery>;
 

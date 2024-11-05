@@ -4,9 +4,9 @@ import { z } from "zod";
 import { EnvService } from "../env/service.js";
 
 export const GitHubUser = z.object({
-  id: z.string(),
+  id: z.number(),
   login: z.string(),
-  email: z.string().optional(),
+  email: z.string().nullish(),
 });
 
 export type GitHubUser = z.infer<typeof GitHubUser>;
@@ -38,27 +38,58 @@ export const GitHubServiceLive = Layer.effect(
       state,
       scopes
     ) => Effect.sync(() => github.createAuthorizationURL(state, scopes ?? []));
+
     const validateAuthorizationCode: IGitHubService["validateAuthorizationCode"] =
       (code) => Effect.tryPromise(() => github.validateAuthorizationCode(code));
+
     const getGitHubUser: IGitHubService["getGitHubUser"] = (tokens) =>
-      Effect.tryPromise(async () => {
-        const result = await fetch("https://api.github.com/user", {
-          headers: {
-            Authorization: `Bearer ${tokens.accessToken}`,
-          },
-        });
+      Effect.gen(function* () {
+        yield* Effect.logInfo(
+          `Getting GitHub user with tokens: ${JSON.stringify(tokens)}`
+        );
+        const result = yield* Effect.tryPromise((signal) =>
+          fetch("https://api.github.com/user", {
+            headers: {
+              Authorization: `Bearer ${tokens.accessToken()}`,
+            },
+            signal,
+          })
+        );
+        yield* Effect.logDebug(`GitHub user result: ${result}`);
+        const emailsResponse = yield* Effect.tryPromise(() =>
+          fetch("https://api.github.com/user/emails", {
+            headers: {
+              Authorization: `Bearer ${tokens.accessToken()}`,
+            },
+          })
+        );
+        if (emailsResponse.ok) {
+          const emails = yield* Effect.tryPromise(() => emailsResponse.json());
+          yield* Effect.logDebug(
+            `GitHub user emails result: ${JSON.stringify(emails)}`
+          );
+        }
+
         if (result.ok) {
-          const json = await result.json();
+          const json = yield* Effect.tryPromise(() => result.json());
+          yield* Effect.logDebug(`GitHub user json: ${JSON.stringify(json)}`);
           const parsedGitHubUser = GitHubUser.safeParse(json);
           if (parsedGitHubUser.success) {
             return Effect.succeed(parsedGitHubUser.data);
           } else {
+            yield* Effect.logError(
+              `Invalid GitHub response. ${parsedGitHubUser.error}`
+            );
             return Effect.fail(
               new Error(`Invalid GitHub response. ${parsedGitHubUser.error}`)
             );
           }
+        } else {
+          yield* Effect.logError(
+            `Failed to get GitHub user. ${result.statusText}`
+          );
+          return Effect.fail(new Error(`Failed to get GitHub user.`));
         }
-        return Effect.fail(new Error("Failed to get LinkedIn user"));
       }).pipe(Effect.flatten);
     return {
       createAuthorizationURL,

@@ -54,6 +54,7 @@ export const DrizzlePostgresProviderLive = Layer.effect(
 
   Effect.gen(function* () {
     const postgres = yield* resource;
+    yield* Effect.logInfo(`☔️ Creating postgres drizzle...`);
     const postgresDrizzle: IDrizzlePostgresProvider["postgresDrizzle"] =
       drizzle(postgres, {
         casing: "snake_case",

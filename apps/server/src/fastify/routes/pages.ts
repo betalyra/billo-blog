@@ -1,45 +1,86 @@
 import { initServer } from "@ts-rest/fastify";
 import { type FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
-import pino from "pino";
 import { billoblogContract } from "@billo-blog/contract";
 import {
   BlogServiceLive,
   GitHubServiceLive,
-  DrizzlePostgresProviderLive,
   EnvServiceLive,
   BlogService,
 } from "@billo-blog/core";
-import { Effect, Either, Layer, Logger, Option, pipe } from "effect";
+import { fastifyCookie } from "@fastify/cookie";
+
+import { Effect, Layer, Logger } from "effect";
+import { SessionServiceLive } from "@billo-blog/core/dist/session/service.js";
+import { UserServiceLive } from "@billo-blog/core/dist/services/user/service.js";
 
 export default fp(async function (fastify: FastifyInstance) {
   const s = initServer();
 
   const Dependencies = BlogServiceLive.pipe(
-    Layer.provideMerge(Layer.mergeAll(GitHubServiceLive, Logger.pretty)),
-    Layer.provideMerge(EnvServiceLive)
+    Layer.provideMerge(
+      Layer.mergeAll(
+        GitHubServiceLive,
+        Logger.pretty,
+        Logger.minimumLogLevel(fastify.env.LOG_LEVEL),
+        SessionServiceLive,
+        UserServiceLive
+      )
+    ),
+    Layer.provideMerge(Layer.mergeAll(EnvServiceLive, fastify.postgresDrizzle))
   );
   const router = s.router(billoblogContract, {
     createOAuth: async ({ params: { provider }, reply }) => {
       const program = Effect.gen(function* () {
         const { createOAuth } = yield* BlogService;
-        const url = yield* createOAuth({ provider });
-        return url;
+        return yield* createOAuth({ provider });
       });
 
-      const runnable = Effect.provide(
-        program,
-        Dependencies.pipe(Layer.provide(fastify.postgresDrizzle))
-      );
+      const runnable = Effect.provide(program, Dependencies);
       const result = await Effect.runPromise(runnable);
-      console.log(result.toString());
-      return reply.redirect(result.toString());
+
+      const cookie = fastifyCookie.serialize("state", result.state, {
+        maxAge: 60_000,
+        httpOnly: true,
+        secure: fastify.env.SESSION_COOKIE_SECURE,
+        sameSite: "lax",
+        path: "/",
+        domain: fastify.env.SESSION_COOKIE_URL?.split("://")[1],
+      });
+
+      return reply.header("Set-Cookie", cookie).redirect(result.url.toString());
     },
-    validateOAuth: async ({ params: { provider }, query }) => {
-      return {
-        status: 200,
-        body: { status: "ok" },
-      };
+    validateOAuth: async ({
+      params: { provider },
+      query: { code, state },
+      request,
+      reply,
+    }) => {
+      const storedState = request.cookies.state;
+      if (!storedState || storedState !== state) {
+        console.error(
+          `Invalid state: storedState: ${storedState} state: ${state}`
+        );
+        return reply.status(400).send({ error: "Invalid state" });
+      }
+
+      const program = Effect.gen(function* () {
+        const { validateOAuth } = yield* BlogService;
+        return yield* validateOAuth({ provider }, { code, state });
+      });
+
+      const runnable = Effect.provide(program, Dependencies);
+      const result = await Effect.runPromise(runnable);
+
+      const cookie = fastifyCookie.serialize("session", result.id, {
+        maxAge: 60_000,
+        httpOnly: true,
+        secure: fastify.env.SESSION_COOKIE_SECURE,
+        sameSite: "lax",
+        path: "/",
+        domain: fastify.env.SESSION_COOKIE_URL?.split("://")[1],
+      });
+      return reply.header("Set-Cookie", cookie).send({ status: "ok", cookie });
     },
     createBlog: async ({ body }) => {
       return {
