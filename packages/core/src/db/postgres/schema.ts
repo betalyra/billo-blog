@@ -1,6 +1,8 @@
 import {
   bigserial,
   boolean,
+  index,
+  integer,
   jsonb,
   pgEnum,
   pgSchema,
@@ -122,17 +124,25 @@ export const BlogTable = schema.table("blogs", {
 export type NewBlog = typeof BlogTable.$inferInsert;
 export type GetBlog = typeof BlogTable.$inferSelect;
 
+export const ArticleStatusEnum = schema.enum("article_status", [
+  "draft",
+  "published",
+  "archived",
+]);
 export const ArticlesTable = schema.table(
   "articles",
   {
     id: bigserial({ mode: "number" }).primaryKey(),
-    publicId: text().unique().notNull().$defaultFn(createId),
+    publicId: text().notNull().$defaultFn(createId),
     blogId: bigserial({ mode: "number" })
       .notNull()
       .references(() => BlogTable.id, { onDelete: "cascade" }),
     name: text(),
     slug: text(),
     content: jsonb().default([]),
+    metadata: jsonb().default({}),
+    status: ArticleStatusEnum().notNull().default("draft"),
+    version: integer().notNull().default(0),
     created: timestamp({ mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -140,31 +150,13 @@ export const ArticlesTable = schema.table(
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.slug, t.blogId, t.updated)]
+  (t) => [
+    unique().on(t.publicId, t.blogId, t.version),
+    unique().on(t.slug, t.blogId, t.status),
+    index().on(t.blogId),
+    index().on(t.updated),
+  ]
 );
 
 export type NewArticle = typeof ArticlesTable.$inferInsert;
 export type GetArticle = typeof ArticlesTable.$inferSelect;
-
-export const PublishedArticlesTable = schema.table(
-  "published_articles",
-  {
-    id: bigserial({ mode: "number" }).primaryKey(),
-    publicId: text().unique().notNull().$defaultFn(createId),
-    articleId: bigserial({ mode: "number" })
-      .notNull()
-      .references(() => ArticlesTable.id, { onDelete: "cascade" }),
-    blogId: bigserial({ mode: "number" })
-      .notNull()
-      .references(() => BlogTable.id, { onDelete: "cascade" }),
-    name: text(),
-    slug: text(),
-    content: jsonb().default([]),
-    published: timestamp({ mode: "date", withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [unique().on(t.slug, t.blogId, t.published)]
-);
-export type NewPublishedArticle = typeof PublishedArticlesTable.$inferInsert;
-export type GetPublishedArticle = typeof PublishedArticlesTable.$inferSelect;

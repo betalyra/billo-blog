@@ -21,6 +21,8 @@ import {
   OAuthValidationResponse,
   GetBlogsResponse,
   CreateArticleResponse,
+  GetArticlesResponse,
+  Block,
 } from "@billo-blog/contract";
 import { GitHubService } from "../oauth/github.js";
 import { generateState } from "arctic";
@@ -34,7 +36,6 @@ import {
   UnauthorizedError,
 } from "../../errors/types.js";
 import { BlogStoreService } from "../store/blog/service.js";
-
 export type CreateOAuthResponse = {
   url: URL;
   state: string;
@@ -75,7 +76,7 @@ export type IBlogService = {
   getArticles: (
     pathParams: GetArticlesParams,
     query: Paginated
-  ) => Effect.Effect<Article[], StandardError, TokenProvider>;
+  ) => Effect.Effect<GetArticlesResponse, StandardError, TokenProvider>;
   getArticle: (
     pathParams: GetArticleParams
   ) => Effect.Effect<Option.Option<Article>, StandardError, TokenProvider>;
@@ -237,9 +238,69 @@ export const BlogServiceLive = Layer.effect(
     const deleteBlog: IBlogService["deleteBlog"] = (pathParams) =>
       Effect.fail(new Error("Not implemented"));
     const getArticles: IBlogService["getArticles"] = (pathParams, query) =>
-      Effect.fail(new Error("Not implemented"));
+      Effect.gen(function* () {
+        const { user, session } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.id,
+          blogPublicId: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        if (user.id !== blog.value.ownerId) {
+          return yield* Effect.fail(new UnauthorizedError());
+        }
+        const { articles, count, limit, page } =
+          yield* blogStoreService.getArticles({
+            blogId: blog.value.id,
+            page: query.page ?? 0,
+            limit: query.limit ?? 10,
+          });
+        return {
+          articles: articles.map((article) => ({
+            publicId: article.publicId,
+            slug: article.slug,
+            name: article.name,
+            authors: [], // TODO: Implement authors
+            og: null, // TODO: Implement og
+            ogArticle: null, // TODO: Implement ogArticle
+            blocks: article.content as Block[],
+          })),
+          count,
+          limit,
+          page,
+        };
+      });
     const getArticle: IBlogService["getArticle"] = (pathParams) =>
-      Effect.fail(new Error("Not implemented"));
+      Effect.gen(function* () {
+        const { user, session } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.id,
+          blogPublicId: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        if (user.id !== blog.value.ownerId) {
+          return yield* Effect.fail(new UnauthorizedError());
+        }
+        const article = yield* blogStoreService.getArticle({
+          blogId: blog.value.id,
+          articlePublicId: pathParams.articleId,
+        });
+        return article.pipe(
+          Option.map((article) => ({
+            publicId: article.publicId,
+            slug: article.slug,
+            name: article.name,
+            authors: [],
+            og: null,
+            ogArticle: null,
+            blocks: article.content as Block[],
+          }))
+        );
+      });
+
     const createArticle: IBlogService["createArticle"] = (pathParams, body) =>
       Effect.gen(function* () {
         const { user, session } = yield* requireUser;
@@ -268,7 +329,38 @@ export const BlogServiceLive = Layer.effect(
       });
 
     const updateArticle: IBlogService["updateArticle"] = (pathParams, body) =>
-      Effect.fail(new Error("Not implemented"));
+      Effect.gen(function* () {
+        const { user, session } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.id,
+          blogPublicId: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        if (user.id !== blog.value.ownerId) {
+          return yield* Effect.fail(new UnauthorizedError());
+        }
+        const article = yield* blogStoreService.updateArticle({
+          blogId: blog.value.id,
+          articlePublicId: pathParams.articleId,
+          content: body?.blocks,
+          name: body?.name,
+          slug: body?.slug,
+        });
+        if (Option.isNone(article)) {
+          return yield* Effect.fail(new Error("Article not found"));
+        }
+        return {
+          publicId: article.value.publicId,
+          slug: article.value.slug,
+          name: article.value.name,
+          authors: [],
+          og: null,
+          ogArticle: null,
+          blocks: article.value.content as Block[],
+        };
+      });
     const deleteArticle: IBlogService["deleteArticle"] = (pathParams) =>
       Effect.fail(new Error("Not implemented"));
     return {
