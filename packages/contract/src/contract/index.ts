@@ -25,14 +25,16 @@ export type Counted = z.infer<typeof Counted>;
 export const PaginatedAndCounted = Paginated.merge(Counted);
 export type PaginatedAndCounted = z.infer<typeof PaginatedAndCounted>;
 
-export const CreateBlogRequest = z.object({
-  name: z.string().optional(),
-  slug: z.string().optional(),
-});
+export const CreateBlogRequest = z
+  .object({
+    name: z.string().optional(),
+    slug: z.string().optional(),
+  })
+  .optional();
 export type CreateBlogRequest = z.infer<typeof CreateBlogRequest>;
 
 export const CreateBlogResponse = z.object({
-  id: ID,
+  publicId: ID,
 });
 export type CreateBlogResponse = z.infer<typeof CreateBlogResponse>;
 
@@ -47,7 +49,7 @@ export const UpdateBlogRequest = z.object({
 export type UpdateBlogRequest = z.infer<typeof UpdateBlogRequest>;
 
 export const UpdateBlogResponse = z.object({
-  id: ID,
+  publicId: ID,
 });
 export type UpdateBlogResponse = z.infer<typeof UpdateBlogResponse>;
 
@@ -81,18 +83,20 @@ export const CreateArticlePathParams = z.object({
 });
 export type CreateArticlePathParams = z.infer<typeof CreateArticlePathParams>;
 
-export const CreateArticleRequest = z.object({
-  name: z.string().optional(),
-  slug: z.string().optional(),
-  authors: ID.array().optional(),
-  og: OGBasicSchema.optional(),
-  ogArticle: OGArticleSchema.optional(),
-  blocks: z.array(Block).optional(),
-});
+export const CreateArticleRequest = z
+  .object({
+    name: z.string().optional(),
+    slug: z.string().optional(),
+    authors: ID.array().optional(),
+    og: OGBasicSchema.optional(),
+    ogArticle: OGArticleSchema.optional(),
+    blocks: z.array(Block).optional(),
+  })
+  .optional();
 export type CreateArticleRequest = z.infer<typeof CreateArticleRequest>;
 
 export const CreateArticleResponse = z.object({
-  id: ID,
+  publicId: ID,
 });
 export type CreateArticleResponse = z.infer<typeof CreateArticleResponse>;
 
@@ -113,7 +117,7 @@ export const UpdateArticleRequest = z.object({
 export type UpdateArticleRequest = z.infer<typeof UpdateArticleRequest>;
 
 export const UpdateArticleResponse = z.object({
-  id: ID,
+  publicId: ID,
 });
 export type UpdateArticleResponse = z.infer<typeof UpdateArticleResponse>;
 
@@ -124,7 +128,7 @@ export const DeleteArticlePathParams = z.object({
 export type DeleteArticlePathParams = z.infer<typeof DeleteArticlePathParams>;
 
 export const Article = z.object({
-  id: ID,
+  publicId: ID,
   slug: z.string().nullable(),
   authors: z.array(ID),
   og: OGBasicSchema.nullable(),
@@ -164,6 +168,12 @@ export const OAuthValidationQuery = z.object({
 });
 export type OAuthValidationQuery = z.infer<typeof OAuthValidationQuery>;
 
+export const OAuthValidationResponse = z.object({
+  accessToken: z.string(),
+  expiresAt: z.number(),
+});
+export type OAuthValidationResponse = z.infer<typeof OAuthValidationResponse>;
+
 export const billoblogContract = c.router(
   {
     createOAuth: {
@@ -181,7 +191,7 @@ export const billoblogContract = c.router(
       pathParams: ValidateOAuthPathParams,
       query: OAuthValidationQuery,
       responses: {
-        200: z.any(),
+        200: OAuthValidationResponse,
         401: z.any(),
       },
     },

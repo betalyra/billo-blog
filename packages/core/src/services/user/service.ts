@@ -11,6 +11,9 @@ import { DrizzlePostgresProvider } from "../db/postgres/provider.js";
 
 export type IUserService = {
   getUserById: (userId: number) => Effect.Effect<Option.Option<User>, Error>;
+  getUserByPublicId: (
+    publicId: string
+  ) => Effect.Effect<Option.Option<User>, Error>;
   getUserByGitHubId(
     gitHubUser: GitHubUser
   ): Effect.Effect<Option.Option<User>, Error>;
@@ -29,7 +32,7 @@ export const UserServiceLive = Layer.effect(
 
     const getUserById: IUserService["getUserById"] = (userId) =>
       Effect.gen(function* () {
-        yield* Effect.logDebug(`Getting user by id: ${userId}`);
+        yield* Effect.logDebug(`Getting user by ID: ${userId}`);
         const user = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
@@ -44,10 +47,27 @@ export const UserServiceLive = Layer.effect(
         return Effect.succeed(Option.some(user[0]!));
       }).pipe(Effect.flatten);
 
+    const getUserByPublicId: IUserService["getUserByPublicId"] = (publicId) =>
+      Effect.gen(function* () {
+        yield* Effect.logDebug(`Getting user by public ID: ${publicId}`);
+        const user = yield* Effect.tryPromise(() =>
+          postgresDrizzle
+            .select()
+            .from(UserTable)
+            .where(eq(UserTable.publicId, publicId))
+            .limit(1)
+        );
+        yield* Effect.logDebug(`Got user.`);
+        if (!user || user.length == 0) {
+          return Effect.succeed(Option.none());
+        }
+        return Effect.succeed(Option.some(user[0]!));
+      }).pipe(Effect.flatten);
+
     const getUserByGitHubId: IUserService["getUserByGitHubId"] = (githubUser) =>
       Effect.gen(function* () {
         yield* Effect.logDebug(
-          `Getting user by GitHub id: ${githubUser.id.toString()}`
+          `Getting user by GitHub ID: ${githubUser.id.toString()}`
         );
         const user = yield* Effect.tryPromise(() =>
           postgresDrizzle
@@ -83,9 +103,6 @@ export const UserServiceLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const email = githubUser.email;
-        if (!email) {
-          return Effect.fail(new Error("Email is required"));
-        }
         const user = yield* Effect.tryPromise(() =>
           postgresDrizzle.transaction(async (tx) => {
             // Insert into UserTable
@@ -94,6 +111,7 @@ export const UserServiceLive = Layer.effect(
               .values({
                 email: email,
                 emailVerified: false,
+                lastSignInAt: new Date(),
               })
               .returning();
 
@@ -116,6 +134,7 @@ export const UserServiceLive = Layer.effect(
 
     return {
       getUserById,
+      getUserByPublicId,
       getUserByGitHubId,
       createUserFromGitHub,
     };

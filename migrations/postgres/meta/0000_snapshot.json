@@ -1,5 +1,5 @@
 {
-  "id": "66c2a742-5c8f-4d2b-b3d1-477e320e3f37",
+  "id": "4d1e21be-3bfd-4ddd-b06d-e54e528b07d0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,8 +14,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "publicId": {
-          "name": "publicId",
+        "public_id": {
+          "name": "public_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -32,14 +32,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "tokenHash": {
-          "name": "tokenHash",
+        "token_hash": {
+          "name": "token_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "userId": {
-          "name": "userId",
+        "user_id": {
+          "name": "user_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
@@ -47,38 +47,38 @@
         "permission": {
           "name": "permission",
           "type": "token_permission",
-          "typeSchema": "public",
+          "typeSchema": "billo_blog",
           "primaryKey": false,
           "notNull": true
         },
-        "isRevoked": {
-          "name": "isRevoked",
+        "is_revoked": {
+          "name": "is_revoked",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
         },
-        "lastUsedAt": {
-          "name": "lastUsedAt",
+        "last_used_at": {
+          "name": "last_used_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "expiresAt": {
-          "name": "expiresAt",
+        "expires_at": {
+          "name": "expires_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "createdAt": {
-          "name": "createdAt",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
-        "updatedAt": {
-          "name": "updatedAt",
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -86,11 +86,11 @@
         }
       },
       "indexes": {
-        "api_token_tokenHash_index": {
-          "name": "api_token_tokenHash_index",
+        "api_token_token_hash_index": {
+          "name": "api_token_token_hash_index",
           "columns": [
             {
-              "expression": "tokenHash",
+              "expression": "token_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -101,11 +101,11 @@
           "method": "btree",
           "with": {}
         },
-        "api_token_userId_name_index": {
-          "name": "api_token_userId_name_index",
+        "api_token_user_id_name_index": {
+          "name": "api_token_user_id_name_index",
           "columns": [
             {
-              "expression": "userId",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -124,13 +124,13 @@
         }
       },
       "foreignKeys": {
-        "api_token_userId_user_id_fk": {
-          "name": "api_token_userId_user_id_fk",
+        "api_token_user_id_user_id_fk": {
+          "name": "api_token_user_id_user_id_fk",
           "tableFrom": "api_token",
           "tableTo": "user",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "userId"
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -145,7 +145,7 @@
           "name": "api_token_publicId_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "publicId"
+            "public_id"
           ]
         }
       },
@@ -163,14 +163,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "publicId": {
-          "name": "publicId",
+        "public_id": {
+          "name": "public_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "blogId": {
-          "name": "blogId",
+        "blog_id": {
+          "name": "blog_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
@@ -211,13 +211,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "articles_blogId_blogs_id_fk": {
-          "name": "articles_blogId_blogs_id_fk",
+        "articles_blog_id_blogs_id_fk": {
+          "name": "articles_blog_id_blogs_id_fk",
           "tableFrom": "articles",
           "tableTo": "blogs",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "blogId"
+            "blog_id"
           ],
           "columnsTo": [
             "id"
@@ -232,7 +232,7 @@
           "name": "articles_publicId_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "publicId"
+            "public_id"
           ]
         },
         "articles_slug_blogId_updated_unique": {
@@ -240,7 +240,7 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug",
-            "blogId",
+            "blog_id",
             "updated"
           ]
         }
@@ -259,14 +259,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "publicId": {
-          "name": "publicId",
+        "public_id": {
+          "name": "public_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "ownerId": {
-          "name": "ownerId",
+        "owner_id": {
+          "name": "owner_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
@@ -293,13 +293,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "blogs_ownerId_user_id_fk": {
-          "name": "blogs_ownerId_user_id_fk",
+        "blogs_owner_id_user_id_fk": {
+          "name": "blogs_owner_id_user_id_fk",
           "tableFrom": "blogs",
           "tableTo": "user",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "ownerId"
+            "owner_id"
           ],
           "columnsTo": [
             "id"
@@ -314,7 +314,7 @@
           "name": "blogs_publicId_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "publicId"
+            "public_id"
           ]
         },
         "blogs_slug_unique": {
@@ -339,8 +339,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "userId": {
-          "name": "userId",
+        "user_id": {
+          "name": "user_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
@@ -351,21 +351,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "providerAccountId": {
-          "name": "providerAccountId",
+        "provider_account_id": {
+          "name": "provider_account_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "createdAt": {
-          "name": "createdAt",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
-        "updatedAt": {
-          "name": "updatedAt",
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -374,13 +374,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "oauth_account_userId_user_id_fk": {
-          "name": "oauth_account_userId_user_id_fk",
+        "oauth_account_user_id_user_id_fk": {
+          "name": "oauth_account_user_id_user_id_fk",
           "tableFrom": "oauth_account",
           "tableTo": "user",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "userId"
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -405,20 +405,20 @@
           "primaryKey": true,
           "notNull": true
         },
-        "publicId": {
-          "name": "publicId",
+        "public_id": {
+          "name": "public_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "articleId": {
-          "name": "articleId",
+        "article_id": {
+          "name": "article_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
         },
-        "blogId": {
-          "name": "blogId",
+        "blog_id": {
+          "name": "blog_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
@@ -452,13 +452,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "published_articles_articleId_articles_id_fk": {
-          "name": "published_articles_articleId_articles_id_fk",
+        "published_articles_article_id_articles_id_fk": {
+          "name": "published_articles_article_id_articles_id_fk",
           "tableFrom": "published_articles",
           "tableTo": "articles",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "articleId"
+            "article_id"
           ],
           "columnsTo": [
             "id"
@@ -466,13 +466,13 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "published_articles_blogId_blogs_id_fk": {
-          "name": "published_articles_blogId_blogs_id_fk",
+        "published_articles_blog_id_blogs_id_fk": {
+          "name": "published_articles_blog_id_blogs_id_fk",
           "tableFrom": "published_articles",
           "tableTo": "blogs",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "blogId"
+            "blog_id"
           ],
           "columnsTo": [
             "id"
@@ -487,7 +487,7 @@
           "name": "published_articles_publicId_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "publicId"
+            "public_id"
           ]
         },
         "published_articles_slug_blogId_published_unique": {
@@ -495,7 +495,7 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug",
-            "blogId",
+            "blog_id",
             "published"
           ]
         }
@@ -514,27 +514,27 @@
           "primaryKey": true,
           "notNull": true
         },
-        "userId": {
-          "name": "userId",
+        "user_id": {
+          "name": "user_id",
           "type": "bigserial",
           "primaryKey": false,
           "notNull": true
         },
-        "expiresAt": {
-          "name": "expiresAt",
+        "expires_at": {
+          "name": "expires_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
-        "createdAt": {
-          "name": "createdAt",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
-        "lastRefreshedAt": {
-          "name": "lastRefreshedAt",
+        "last_refreshed_at": {
+          "name": "last_refreshed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -543,13 +543,13 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "session_userId_user_id_fk": {
-          "name": "session_userId_user_id_fk",
+        "session_user_id_user_id_fk": {
+          "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
           "schemaTo": "billo_blog",
           "columnsFrom": [
-            "userId"
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -574,8 +574,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "publicId": {
-          "name": "publicId",
+        "public_id": {
+          "name": "public_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -584,10 +584,10 @@
           "name": "email",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "emailVerified": {
-          "name": "emailVerified",
+        "email_verified": {
+          "name": "email_verified",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -600,21 +600,21 @@
           "notNull": true,
           "default": "'active'"
         },
-        "lastSignInAt": {
-          "name": "lastSignInAt",
+        "last_sign_in_at": {
+          "name": "last_sign_in_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "createdAt": {
-          "name": "createdAt",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
-        "updatedAt": {
-          "name": "updatedAt",
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -629,7 +629,7 @@
           "name": "user_publicId_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "publicId"
+            "public_id"
           ]
         },
         "user_email_unique": {
@@ -646,9 +646,9 @@
     }
   },
   "enums": {
-    "public.token_permission": {
+    "billo_blog.token_permission": {
       "name": "token_permission",
-      "schema": "public",
+      "schema": "billo_blog",
       "values": [
         "read",
         "write"
