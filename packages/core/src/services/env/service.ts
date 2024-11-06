@@ -37,7 +37,7 @@ export const IEnv = z.object({
     .min(1)
     .max(60 * 60)
     .optional()
-    .default(120)
+    .default(60)
     .describe(
       "Update interval with which new versions of articles are created"
     ),

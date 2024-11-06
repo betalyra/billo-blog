@@ -13,13 +13,13 @@
     "@total-typescript/tsconfig": "^1.0.4",
     "rimraf": "^6.0.1",
     "tsc-alias": "^1.8.10",
-    "tsx": "^4.17.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.0.5"
+    "vitest": "^2.1.4"
   },
   "dependencies": {
-    "@ts-rest/core": "^3.49.3",
-    "effect": "^3.6.2",
+    "@ts-rest/core": "^3.51.0",
+    "effect": "^3.10.11",
     "pino": "^9.5.0",
     "zod": "3.24.0-canary.20240701T200529"
   }

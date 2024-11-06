@@ -2,8 +2,8 @@ import { Context, Effect, Layer, Option } from "effect";
 
 import { eq, and } from "drizzle-orm";
 import {
-  OAuthAccountTable,
-  UserTable,
+  OAuthAccountsTable,
+  UsersTable,
   type User,
 } from "../../db/postgres/schema.js";
 import type { GitHubUser } from "../oauth/github.js";
@@ -36,8 +36,8 @@ export const UserServiceLive = Layer.effect(
         const user = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
-            .from(UserTable)
-            .where(eq(UserTable.id, userId))
+            .from(UsersTable)
+            .where(eq(UsersTable.internalId, userId))
             .limit(1)
         );
         yield* Effect.logDebug(`Got user.`);
@@ -53,8 +53,8 @@ export const UserServiceLive = Layer.effect(
         const user = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
-            .from(UserTable)
-            .where(eq(UserTable.publicId, publicId))
+            .from(UsersTable)
+            .where(eq(UsersTable.id, publicId))
             .limit(1)
         );
         yield* Effect.logDebug(`Got user.`);
@@ -72,19 +72,19 @@ export const UserServiceLive = Layer.effect(
         const user = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select({
-              user: UserTable,
-              oauthAccount: OAuthAccountTable,
+              user: UsersTable,
+              oauthAccount: OAuthAccountsTable,
             })
-            .from(UserTable)
+            .from(UsersTable)
             .innerJoin(
-              OAuthAccountTable,
-              eq(UserTable.id, OAuthAccountTable.userId)
+              OAuthAccountsTable,
+              eq(UsersTable.internalId, OAuthAccountsTable.userId)
             )
             .where(
               and(
-                eq(OAuthAccountTable.provider, "github"),
+                eq(OAuthAccountsTable.provider, "github"),
                 eq(
-                  OAuthAccountTable.providerAccountId,
+                  OAuthAccountsTable.providerAccountId,
                   githubUser.id.toString()
                 )
               )
@@ -107,7 +107,7 @@ export const UserServiceLive = Layer.effect(
           postgresDrizzle.transaction(async (tx) => {
             // Insert into UserTable
             const [user] = await tx
-              .insert(UserTable)
+              .insert(UsersTable)
               .values({
                 email: email,
                 emailVerified: false,
@@ -116,8 +116,8 @@ export const UserServiceLive = Layer.effect(
               .returning();
 
             // Insert into OAuthAccountTable
-            await tx.insert(OAuthAccountTable).values({
-              userId: user!.id,
+            await tx.insert(OAuthAccountsTable).values({
+              userId: user!.internalId,
               provider: "github",
               providerAccountId: githubUser.id.toString(),
             });

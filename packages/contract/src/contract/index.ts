@@ -6,6 +6,26 @@ import { cons } from "effect/List";
 export * from "../types/blocknote.js";
 const c = initContract();
 
+export const CreateOAuthPathParams = z.object({
+  provider: z.enum(["github"]),
+});
+export type CreateOAuthPathParams = z.infer<typeof CreateOAuthPathParams>;
+
+export const ValidateOAuthPathParams = CreateOAuthPathParams;
+export type ValidateOAuthPathParams = z.infer<typeof ValidateOAuthPathParams>;
+
+export const OAuthValidationQuery = z.object({
+  code: z.string(),
+  state: z.string(),
+});
+export type OAuthValidationQuery = z.infer<typeof OAuthValidationQuery>;
+
+export const OAuthValidationResponse = z.object({
+  accessToken: z.string(),
+  expiresAt: z.number(),
+});
+export type OAuthValidationResponse = z.infer<typeof OAuthValidationResponse>;
+
 export const ID = z.string().cuid2();
 export type ID = z.infer<typeof ID>;
 
@@ -34,7 +54,7 @@ export const CreateBlogRequest = z
 export type CreateBlogRequest = z.infer<typeof CreateBlogRequest>;
 
 export const CreateBlogResponse = z.object({
-  publicId: ID,
+  blogId: ID,
 });
 export type CreateBlogResponse = z.infer<typeof CreateBlogResponse>;
 
@@ -49,7 +69,7 @@ export const UpdateBlogRequest = z.object({
 export type UpdateBlogRequest = z.infer<typeof UpdateBlogRequest>;
 
 export const UpdateBlogResponse = z.object({
-  publicId: ID,
+  blogId: ID,
 });
 export type UpdateBlogResponse = z.infer<typeof UpdateBlogResponse>;
 
@@ -59,7 +79,7 @@ export const DeleteBlogPathParams = z.object({
 export type DeleteBlogPathParams = z.infer<typeof DeleteBlogPathParams>;
 
 export const Blog = z.object({
-  publicId: ID,
+  blogId: ID,
   slug: z.string().nullable(),
   name: z.string().nullable(),
   created: z.string(),
@@ -78,12 +98,12 @@ export const GetBlogsResponse = PaginatedAndCounted.merge(
 );
 export type GetBlogsResponse = z.infer<typeof GetBlogsResponse>;
 
-export const CreateArticlePathParams = z.object({
+export const CreateDraftPathParams = z.object({
   blogId: ID,
 });
-export type CreateArticlePathParams = z.infer<typeof CreateArticlePathParams>;
+export type CreateDraftPathParams = z.infer<typeof CreateDraftPathParams>;
 
-export const CreateArticleRequest = z
+export const CreateDraftRequest = z
   .object({
     name: z.string().optional(),
     slug: z.string().optional(),
@@ -93,20 +113,20 @@ export const CreateArticleRequest = z
     blocks: z.array(Block).optional(),
   })
   .optional();
-export type CreateArticleRequest = z.infer<typeof CreateArticleRequest>;
+export type CreateDraftRequest = z.infer<typeof CreateDraftRequest>;
 
-export const CreateArticleResponse = z.object({
-  publicId: ID,
+export const CreateDraftResponse = z.object({
+  draftId: ID,
 });
-export type CreateArticleResponse = z.infer<typeof CreateArticleResponse>;
+export type CreateDraftResponse = z.infer<typeof CreateDraftResponse>;
 
-export const UpdateArticlePathParams = z.object({
+export const UpdateDraftPathParams = z.object({
   blogId: ID,
-  articleId: ID,
+  draftId: ID,
 });
-export type UpdateArticlePathParams = z.infer<typeof UpdateArticlePathParams>;
+export type UpdateDraftPathParams = z.infer<typeof UpdateDraftPathParams>;
 
-export const UpdateArticleRequest = z.object({
+export const UpdateDraftRequest = z.object({
   name: z.string().optional(),
   slug: z.string().optional(),
   authors: ID.array().optional(),
@@ -114,21 +134,21 @@ export const UpdateArticleRequest = z.object({
   ogArticle: OGArticleSchema.optional(),
   blocks: z.array(Block).optional(),
 });
-export type UpdateArticleRequest = z.infer<typeof UpdateArticleRequest>;
+export type UpdateDraftRequest = z.infer<typeof UpdateDraftRequest>;
 
-export const UpdateArticleResponse = z.object({
-  publicId: ID,
+export const UpdateDraftResponse = z.object({
+  draftId: ID,
 });
-export type UpdateArticleResponse = z.infer<typeof UpdateArticleResponse>;
+export type UpdateDraftResponse = z.infer<typeof UpdateDraftResponse>;
 
-export const DeleteArticlePathParams = z.object({
+export const DeleteDraftPathParams = z.object({
   blogId: ID,
-  articleId: ID,
+  draftId: ID,
 });
-export type DeleteArticlePathParams = z.infer<typeof DeleteArticlePathParams>;
+export type DeleteDraftPathParams = z.infer<typeof DeleteDraftPathParams>;
 
-export const Article = z.object({
-  publicId: ID,
+export const Draft = z.object({
+  draftId: ID,
   slug: z.string().nullable(),
   name: z.string().nullable(),
   authors: z.array(ID),
@@ -136,12 +156,91 @@ export const Article = z.object({
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block),
 });
+export type Draft = z.infer<typeof Draft>;
+
+export const Article = z.object({
+  articleId: ID,
+  name: z.string(),
+  slug: z.string(),
+  authors: ID.array(),
+  og: OGBasicSchema.nullable(),
+  ogArticle: OGArticleSchema.nullable(),
+  blocks: z.array(Block),
+});
 export type Article = z.infer<typeof Article>;
 
-export const GetArticlesParams = z.object({
+export const GetDraftsPathParams = z.object({
   blogId: ID,
 });
-export type GetArticlesParams = z.infer<typeof GetArticlesParams>;
+export type GetDraftsPathParams = z.infer<typeof GetDraftsPathParams>;
+
+export const DraftSummary = z.object({
+  draftId: ID,
+  slug: z.string().nullable(),
+  name: z.string().nullable(),
+});
+export type DraftSummary = z.infer<typeof DraftSummary>;
+
+export const GetDraftsResponse = PaginatedAndCounted.merge(
+  z.object({
+    drafts: z.array(DraftSummary),
+  })
+);
+export type GetDraftsResponse = z.infer<typeof GetDraftsResponse>;
+export const GetDraftPathParams = z.object({
+  blogId: ID,
+  draftId: ID,
+});
+export type GetDraftPathParams = z.infer<typeof GetDraftPathParams>;
+
+export const GetDraftVersionsPathParams = z.object({
+  blogId: ID,
+  draftId: ID,
+});
+export type GetDraftVersionsPathParams = z.infer<
+  typeof GetDraftVersionsPathParams
+>;
+
+export const DraftVersion = z.object({
+  publishedAt: z.string(),
+  version: z.number(),
+  draftId: ID,
+});
+export type DraftVersion = z.infer<typeof DraftVersion>;
+
+export const GetDraftVersionsResponse = PaginatedAndCounted.merge(
+  z.object({
+    versions: z.array(DraftVersion),
+  })
+);
+export type GetDraftVersionsResponse = z.infer<typeof GetDraftVersionsResponse>;
+
+export const PublishDraftPathParams = z.object({
+  blogId: ID,
+  draftId: ID,
+});
+export type PublishDraftPathParams = z.infer<typeof PublishDraftPathParams>;
+
+export const PublishDraftResponse = z.object({
+  articleId: ID,
+});
+export type PublishDraftResponse = z.infer<typeof PublishDraftResponse>;
+
+export const DeleteArticlePathParams = z.object({
+  blogId: ID,
+  articleId: ID,
+});
+export type DeleteArticlePathParams = z.infer<typeof DeleteArticlePathParams>;
+
+export const DeleteArticleResponse = z.object({
+  articleId: ID,
+});
+export type DeleteArticleResponse = z.infer<typeof DeleteArticleResponse>;
+
+export const GetArticlesPathParams = z.object({
+  blogId: ID,
+});
+export type GetArticlesPathParams = z.infer<typeof GetArticlesPathParams>;
 
 export const GetArticlesResponse = PaginatedAndCounted.merge(
   z.object({
@@ -149,31 +248,37 @@ export const GetArticlesResponse = PaginatedAndCounted.merge(
   })
 );
 export type GetArticlesResponse = z.infer<typeof GetArticlesResponse>;
-export const GetArticleParams = z.object({
+
+export const GetArticlePathParams = z.object({
   blogId: ID,
   articleId: ID,
 });
-export type GetArticleParams = z.infer<typeof GetArticleParams>;
+export type GetArticlePathParams = z.infer<typeof GetArticlePathParams>;
 
-export const CreateOAuthPathParams = z.object({
-  provider: z.enum(["github"]),
+export const GetArticleResponse = Article;
+export type GetArticleResponse = z.infer<typeof GetArticleResponse>;
+
+export const GetArticleVersionsPathParams = z.object({
+  blogId: ID,
+  articleId: ID,
 });
-export type CreateOAuthPathParams = z.infer<typeof CreateOAuthPathParams>;
+/*
+// Draft Operations
+POST    /api/blogs/{blogId}/drafts              // Create new draft
+GET     /api/blogs/{blogId}/drafts              // List all drafts
+GET     /api/blogs/{blogId}/drafts/{draftId}    // Get specific draft
+PUT     /api/blogs/{blogId}/drafts/{draftId}    // Update draft
+DELETE  /api/blogs/{blogId}/drafts/{draftId}    // Delete draft
 
-export const ValidateOAuthPathParams = CreateOAuthPathParams;
-export type ValidateOAuthPathParams = z.infer<typeof ValidateOAuthPathParams>;
+// Publishing Operations
+POST    /api/blogs/{blogId}/drafts/{draftId}/publish    // Publish a draft
+DELETE  /api/blogs/{blogId}/articles/{articleId}        // Unpublish an article
 
-export const OAuthValidationQuery = z.object({
-  code: z.string(),
-  state: z.string(),
-});
-export type OAuthValidationQuery = z.infer<typeof OAuthValidationQuery>;
-
-export const OAuthValidationResponse = z.object({
-  accessToken: z.string(),
-  expiresAt: z.number(),
-});
-export type OAuthValidationResponse = z.infer<typeof OAuthValidationResponse>;
+// Published Articles
+GET     /api/blogs/{blogId}/articles            // List published articles
+GET     /api/blogs/{blogId}/articles/{articleId}        // Get published article
+GET     /api/blogs/{blogId}/articles/{articleId}/versions  // Get publishing history
+*/
 
 export const billoblogContract = c.router(
   {
@@ -238,19 +343,80 @@ export const billoblogContract = c.router(
         200: z.any(),
       },
     },
-    createArticle: {
+    createDraft: {
       method: "POST",
-      path: "/blogs/:blogId/articles",
-      pathParams: CreateArticlePathParams,
-      body: CreateArticleRequest,
+      path: "/blogs/:blogId/drafts",
+      pathParams: CreateDraftPathParams,
+      body: CreateDraftRequest,
       responses: {
-        200: CreateArticleResponse,
+        200: CreateDraftResponse,
+      },
+    },
+    getDrafts: {
+      method: "GET",
+      path: "/blogs/:blogId/drafts",
+      pathParams: GetDraftsPathParams,
+      query: Paginated,
+      responses: {
+        200: GetDraftsResponse,
+      },
+    },
+    getDraft: {
+      method: "GET",
+      path: "/blogs/:blogId/drafts/:draftId",
+      pathParams: GetDraftPathParams,
+      responses: {
+        200: Draft,
+        404: z.any(),
+      },
+    },
+    updateDraft: {
+      method: "PUT",
+      path: "/blogs/:blogId/drafts/:draftId",
+      pathParams: UpdateDraftPathParams,
+      body: UpdateDraftRequest,
+      responses: {
+        200: UpdateDraftResponse,
+      },
+    },
+    deleteDraft: {
+      method: "DELETE",
+      path: "/blogs/:blogId/drafts/:draftId",
+      pathParams: DeleteDraftPathParams,
+      responses: {
+        200: z.any(),
+      },
+    },
+    getDraftVersions: {
+      method: "GET",
+      path: "/blogs/:blogId/drafts/:draftId/versions",
+      pathParams: GetDraftVersionsPathParams,
+      query: Paginated,
+      responses: {
+        200: GetDraftVersionsResponse,
+      },
+    },
+    publishDraft: {
+      method: "POST",
+      path: "/blogs/:blogId/drafts/:draftId/publish",
+      pathParams: PublishDraftPathParams,
+      body: z.any().optional(),
+      responses: {
+        200: PublishDraftResponse,
+      },
+    },
+    deleteArticle: {
+      method: "DELETE",
+      path: "/blogs/:blogId/articles/:articleId",
+      pathParams: DeleteArticlePathParams,
+      responses: {
+        200: DeleteArticleResponse,
       },
     },
     getArticles: {
       method: "GET",
       path: "/blogs/:blogId/articles",
-      pathParams: GetArticlesParams,
+      pathParams: GetArticlesPathParams,
       query: Paginated,
       responses: {
         200: GetArticlesResponse,
@@ -259,27 +425,9 @@ export const billoblogContract = c.router(
     getArticle: {
       method: "GET",
       path: "/blogs/:blogId/articles/:articleId",
-      pathParams: GetArticleParams,
+      pathParams: GetArticlePathParams,
       responses: {
-        200: Article,
-        404: z.any(),
-      },
-    },
-    updateArticle: {
-      method: "PUT",
-      path: "/blogs/:blogId/articles/:articleId",
-      pathParams: UpdateArticlePathParams,
-      body: UpdateArticleRequest,
-      responses: {
-        200: UpdateArticleResponse,
-      },
-    },
-    deleteArticle: {
-      method: "DELETE",
-      path: "/blogs/:blogId/articles/:articleId",
-      pathParams: DeleteArticlePathParams,
-      responses: {
-        200: z.any(),
+        200: GetArticleResponse,
       },
     },
   },

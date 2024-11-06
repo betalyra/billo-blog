@@ -16,9 +16,9 @@ import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 
 export const schema = pgSchema("billo_blog");
 
-export const UserTable = schema.table("user", {
-  id: bigserial({ mode: "number" }).primaryKey(),
-  publicId: text().unique().notNull().$defaultFn(createId),
+export const UsersTable = schema.table("users", {
+  internalId: bigserial({ mode: "number" }).primaryKey(),
+  id: text().unique().notNull().$defaultFn(createId),
   email: text().unique(),
   emailVerified: boolean().notNull().default(false),
   status: text().notNull().default("active"),
@@ -27,27 +27,29 @@ export const UserTable = schema.table("user", {
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-export type User = InferSelectModel<typeof UserTable>;
-export type NewUser = InferInsertModel<typeof UserTable>;
+export type User = InferSelectModel<typeof UsersTable>;
+export type NewUser = InferInsertModel<typeof UsersTable>;
 
-export const SessionTable = schema.table("session", {
-  id: text().primaryKey().$defaultFn(createId),
+export const SessionsTable = schema.table("sessions", {
+  internalId: bigserial({ mode: "number" }).primaryKey(),
+  id: text().unique().notNull().$defaultFn(createId),
   userId: bigserial({ mode: "number" })
     .notNull()
-    .references(() => UserTable.id),
+    .references(() => UsersTable.internalId),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   lastRefreshedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-export type Session = InferSelectModel<typeof SessionTable>;
-export type NewSession = InferInsertModel<typeof SessionTable>;
+export type Session = InferSelectModel<typeof SessionsTable>;
+export type NewSession = InferInsertModel<typeof SessionsTable>;
 
-export const OAuthAccountTable = schema.table("oauth_account", {
-  id: text().primaryKey().$defaultFn(createId),
+export const OAuthAccountsTable = schema.table("oauth_account", {
+  internalId: bigserial({ mode: "number" }).primaryKey(),
+  id: text().unique().notNull().$defaultFn(createId),
   userId: bigserial({ mode: "number" })
     .notNull()
-    .references(() => UserTable.id, { onDelete: "cascade" }),
+    .references(() => UsersTable.internalId, { onDelete: "cascade" }),
   provider: text().notNull(),
   providerAccountId: text().notNull(),
 
@@ -55,8 +57,8 @@ export const OAuthAccountTable = schema.table("oauth_account", {
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-export type OAuthAccount = typeof OAuthAccountTable.$inferSelect;
-export type InsertOAuthAccount = typeof OAuthAccountTable.$inferInsert;
+export type OAuthAccount = typeof OAuthAccountsTable.$inferSelect;
+export type InsertOAuthAccount = typeof OAuthAccountsTable.$inferInsert;
 
 export const TokenPermissionEnum = schema.enum("token_permission", [
   "read",
@@ -64,11 +66,11 @@ export const TokenPermissionEnum = schema.enum("token_permission", [
 ]);
 
 // API tokens table
-export const ApiTokenTable = schema.table(
-  "api_token",
+export const ApiTokensTable = schema.table(
+  "api_tokens",
   {
-    id: bigserial({ mode: "number" }).primaryKey(),
-    publicId: text().unique().notNull().$defaultFn(createId),
+    internalId: bigserial({ mode: "number" }).primaryKey(),
+    id: text().unique().notNull().$defaultFn(createId),
     name: text().notNull(),
     // Using a descriptive name helps identify the token's purpose
     description: text(),
@@ -79,7 +81,7 @@ export const ApiTokenTable = schema.table(
     // Reference to the user who created the token
     userId: bigserial({ mode: "number" })
       .notNull()
-      .references(() => UserTable.id, { onDelete: "cascade" }),
+      .references(() => UsersTable.internalId, { onDelete: "cascade" }),
 
     // Token permissions
     permission: TokenPermissionEnum().notNull(),
@@ -102,15 +104,15 @@ export const ApiTokenTable = schema.table(
     uniqueIndex().on(table.userId, table.name),
   ]
 );
-export type ApiToken = typeof ApiTokenTable.$inferSelect;
-export type InsertApiToken = typeof ApiTokenTable.$inferInsert;
+export type ApiToken = typeof ApiTokensTable.$inferSelect;
+export type InsertApiToken = typeof ApiTokensTable.$inferInsert;
 
-export const BlogTable = schema.table("blogs", {
-  id: bigserial({ mode: "number" }).primaryKey(),
-  publicId: text().unique().notNull().$defaultFn(createId),
+export const BlogsTable = schema.table("blogs", {
+  internalId: bigserial({ mode: "number" }).primaryKey(),
+  id: text().unique().notNull().$defaultFn(createId),
   ownerId: bigserial({ mode: "number" })
     .notNull()
-    .references(() => UserTable.id, { onDelete: "cascade" }),
+    .references(() => UsersTable.internalId, { onDelete: "cascade" }),
   name: text(),
   slug: text().unique(),
   created: timestamp({
@@ -121,27 +123,21 @@ export const BlogTable = schema.table("blogs", {
     .defaultNow(),
 });
 
-export type NewBlog = typeof BlogTable.$inferInsert;
-export type GetBlog = typeof BlogTable.$inferSelect;
+export type NewBlog = typeof BlogsTable.$inferInsert;
+export type GetBlog = typeof BlogsTable.$inferSelect;
 
-export const ArticleStatusEnum = schema.enum("article_status", [
-  "draft",
-  "published",
-  "archived",
-]);
-export const ArticlesTable = schema.table(
-  "articles",
+export const DraftsTable = schema.table(
+  "drafts",
   {
-    id: bigserial({ mode: "number" }).primaryKey(),
-    publicId: text().notNull().$defaultFn(createId),
+    internalId: bigserial({ mode: "number" }).primaryKey(),
+    id: text().notNull().$defaultFn(createId),
     blogId: bigserial({ mode: "number" })
       .notNull()
-      .references(() => BlogTable.id, { onDelete: "cascade" }),
+      .references(() => BlogsTable.internalId, { onDelete: "cascade" }),
     name: text(),
     slug: text(),
     content: jsonb().default([]),
     metadata: jsonb().default({}),
-    status: ArticleStatusEnum().notNull().default("draft"),
     version: integer().notNull().default(0),
     created: timestamp({ mode: "date", withTimezone: true })
       .notNull()
@@ -151,12 +147,33 @@ export const ArticlesTable = schema.table(
       .defaultNow(),
   },
   (t) => [
-    unique().on(t.publicId, t.blogId, t.version),
-    unique().on(t.slug, t.blogId, t.status),
-    index().on(t.blogId),
-    index().on(t.updated),
+    // Composite unique constraint on all version-related fields
+    unique().on(t.blogId, t.id, t.version),
+    unique().on(t.blogId, t.slug, t.version),
   ]
 );
 
+export type NewDraft = typeof DraftsTable.$inferInsert;
+export type GetDraft = typeof DraftsTable.$inferSelect;
+
+// Article versions table - stores immutable published versions
+export const ArticlesTable = schema.table(
+  "articles",
+  {
+    blogId: bigserial({ mode: "number" })
+      .notNull()
+      .references(() => BlogsTable.internalId, { onDelete: "cascade" }),
+    internalId: bigserial({ mode: "number" }).primaryKey(),
+    id: text().notNull(),
+    name: text(),
+    slug: text(),
+    content: jsonb().notNull(),
+    metadata: jsonb().notNull(),
+    publishedAt: timestamp({ mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique().on(t.blogId, t.id), index().on(t.blogId, t.slug)]
+);
 export type NewArticle = typeof ArticlesTable.$inferInsert;
 export type GetArticle = typeof ArticlesTable.$inferSelect;

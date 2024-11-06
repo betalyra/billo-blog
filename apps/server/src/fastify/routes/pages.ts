@@ -125,7 +125,7 @@ export default fp(async function (fastify: FastifyInstance) {
 
       return {
         status: 200,
-        body: { publicId: result.publicId },
+        body: { blogId: result.blogId },
       };
     },
     getBlogs: async ({ query, request }) => {
@@ -187,7 +187,7 @@ export default fp(async function (fastify: FastifyInstance) {
       return {
         status: 200,
         body: {
-          publicId: "1",
+          blogId: "1",
         },
       };
     },
@@ -197,7 +197,7 @@ export default fp(async function (fastify: FastifyInstance) {
         body: {},
       };
     },
-    createArticle: async ({ params: { blogId }, body, request }) => {
+    createDraft: async ({ params: { blogId }, body, request }) => {
       const token = request.bearerToken;
       if (!token) {
         return { status: 401, body: { error: "Unauthorized" } };
@@ -211,8 +211,8 @@ export default fp(async function (fastify: FastifyInstance) {
         )
       );
       const program = Effect.gen(function* () {
-        const { createArticle } = yield* BlogService;
-        return yield* createArticle({ blogId }, body);
+        const { createDraft } = yield* BlogService;
+        return yield* createDraft({ blogId }, body);
       });
 
       const runnable = Effect.provide(program, Deps);
@@ -220,10 +220,10 @@ export default fp(async function (fastify: FastifyInstance) {
 
       return {
         status: 200,
-        body: { publicId: result.publicId },
+        body: { draftId: result.draftId },
       };
     },
-    getArticles: async ({
+    getDrafts: async ({
       params: { blogId },
       query: { limit, page },
       request,
@@ -241,8 +241,8 @@ export default fp(async function (fastify: FastifyInstance) {
         )
       );
       const program = Effect.gen(function* () {
-        const { getArticles } = yield* BlogService;
-        return yield* getArticles({ blogId }, { limit, page });
+        const { getDrafts } = yield* BlogService;
+        return yield* getDrafts({ blogId }, { limit, page });
       });
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
@@ -252,7 +252,7 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result,
       };
     },
-    getArticle: async ({ params: { blogId, articleId }, request }) => {
+    getDraft: async ({ params: { blogId, draftId }, request }) => {
       const token = request.bearerToken;
       if (!token) {
         return { status: 401, body: { error: "Unauthorized" } };
@@ -266,8 +266,8 @@ export default fp(async function (fastify: FastifyInstance) {
         )
       );
       const program = Effect.gen(function* () {
-        const { getArticle } = yield* BlogService;
-        return yield* getArticle({ blogId, articleId });
+        const { getDraft } = yield* BlogService;
+        return yield* getDraft({ blogId, draftId });
       });
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
@@ -281,7 +281,7 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.value,
       };
     },
-    updateArticle: async ({ params: { blogId, articleId }, body, request }) => {
+    updateDraft: async ({ params: { blogId, draftId }, body, request }) => {
       const token = request.bearerToken;
       if (!token) {
         return { status: 401, body: { error: "Unauthorized" } };
@@ -295,21 +295,105 @@ export default fp(async function (fastify: FastifyInstance) {
         )
       );
       const program = Effect.gen(function* () {
-        const { updateArticle } = yield* BlogService;
-        return yield* updateArticle({ blogId, articleId }, body);
-      });
+        const { updateDraft } = yield* BlogService;
+        return yield* updateDraft({ blogId, draftId }, body);
+      }).pipe(Effect.either);
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
 
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
       return {
         status: 200,
-        body: result,
+        body: result.right,
+      };
+    },
+    deleteDraft: async ({ params: { blogId, draftId } }) => {
+      return {
+        status: 200,
+        body: {},
+      };
+    },
+    getDraftVersions: async ({ params: { blogId, draftId } }) => {
+      return {
+        status: 200,
+        body: {
+          count: 1,
+          versions: [],
+        },
+      };
+    },
+    publishDraft: async ({ params: { blogId, draftId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+
+      const program = Effect.gen(function* () {
+        const { publishDraft } = yield* BlogService;
+        return yield* publishDraft({ blogId, draftId });
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
+      return {
+        status: 200,
+        body: result.right,
       };
     },
     deleteArticle: async ({ params: { blogId, articleId } }) => {
       return {
         status: 200,
-        body: {},
+        body: { articleId },
+      };
+    },
+    getArticles: async ({ params: { blogId }, query: { limit, page } }) => {
+      return {
+        status: 200,
+        body: {
+          count: 1,
+          articles: [],
+        },
+      };
+    },
+    getArticle: async ({ params: { blogId, articleId } }) => {
+      return {
+        status: 200,
+        body: {
+          articleId,
+          name: "My Article",
+          slug: "my-article",
+          authors: ["John Doe"],
+          og: {
+            title: "My Article",
+            description: "My Article",
+            image: "My Article",
+            url: "My Article",
+            siteName: "My Article",
+          },
+          ogArticle: null,
+          blocks: [],
+        },
       };
     },
   });
