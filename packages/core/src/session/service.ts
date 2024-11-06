@@ -5,7 +5,7 @@ import type { NewSession } from "../db/postgres/schema.js";
 import { encodeBase32, encodeHexLowerCase } from "@oslojs/encoding";
 import { sha256 } from "@oslojs/crypto/sha2";
 import { DrizzlePostgresProvider } from "../services/db/postgres/provider.js";
-import { SessionTable, UserTable } from "../db/postgres/schema.js";
+import { SessionsTable, UsersTable } from "../db/postgres/schema.js";
 import { eq } from "drizzle-orm";
 
 export type SessionWithUser = {
@@ -44,9 +44,12 @@ export const SessionServiceLive = Layer.effect(
         const sessionData = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
-            .from(SessionTable)
-            .innerJoin(UserTable, eq(SessionTable.userId, UserTable.id))
-            .where(eq(SessionTable.id, sessionId))
+            .from(SessionsTable)
+            .innerJoin(
+              UsersTable,
+              eq(SessionsTable.userId, UsersTable.internalId)
+            )
+            .where(eq(SessionsTable.id, sessionId))
             .limit(1)
             .execute()
         );
@@ -55,14 +58,14 @@ export const SessionServiceLive = Layer.effect(
           return Option.none<SessionWithUser>();
         }
 
-        const { session, user } = sessionData[0]!;
+        const { sessions, users } = sessionData[0]!;
 
         // Check if expired
-        if (Date.now() >= session.expiresAt.getTime()) {
+        if (Date.now() >= sessions.expiresAt.getTime()) {
           yield* Effect.tryPromise(() =>
             postgresDrizzle
-              .delete(SessionTable)
-              .where(eq(SessionTable.id, session.id))
+              .delete(SessionsTable)
+              .where(eq(SessionsTable.id, sessions.id))
               .execute()
           );
           return Option.none<SessionWithUser>();
@@ -71,20 +74,20 @@ export const SessionServiceLive = Layer.effect(
         // Refresh if close to expiry
         if (
           Date.now() >=
-          session.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15
+          sessions.expiresAt.getTime() - 1000 * 60 * 60 * 24 * 15
         ) {
           const newExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
           yield* Effect.tryPromise(() =>
             postgresDrizzle
-              .update(SessionTable)
+              .update(SessionsTable)
               .set({ expiresAt: newExpiresAt })
-              .where(eq(SessionTable.id, session.id))
+              .where(eq(SessionsTable.id, sessions.id))
               .execute()
           );
-          session.expiresAt = newExpiresAt;
+          sessions.expiresAt = newExpiresAt;
         }
 
-        return Option.some({ session, user });
+        return Option.some({ session: sessions, user: users });
       });
 
     const invalidateSession: ISessionService["invalidateSession"] = (
@@ -92,8 +95,8 @@ export const SessionServiceLive = Layer.effect(
     ) =>
       Effect.tryPromise(() =>
         postgresDrizzle
-          .delete(SessionTable)
-          .where(eq(SessionTable.id, sessionId))
+          .delete(SessionsTable)
+          .where(eq(SessionsTable.id, sessionId))
           .execute()
       );
 
@@ -102,8 +105,8 @@ export const SessionServiceLive = Layer.effect(
     ) =>
       Effect.tryPromise(() =>
         postgresDrizzle
-          .delete(SessionTable)
-          .where(eq(SessionTable.userId, userId))
+          .delete(SessionsTable)
+          .where(eq(SessionsTable.userId, userId))
           .execute()
       );
 
@@ -128,7 +131,7 @@ export const SessionServiceLive = Layer.effect(
         };
 
         const createdSession = yield* Effect.tryPromise(() =>
-          postgresDrizzle.insert(SessionTable).values(session).returning()
+          postgresDrizzle.insert(SessionsTable).values(session).returning()
         );
 
         if (createdSession.length === 0) {

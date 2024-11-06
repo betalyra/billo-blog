@@ -1,21 +1,21 @@
 {
-  "id": "4d1e21be-3bfd-4ddd-b06d-e54e528b07d0",
+  "id": "992b0551-e964-41da-a161-13e1989359fb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "billo_blog.api_token": {
-      "name": "api_token",
+    "billo_blog.api_tokens": {
+      "name": "api_tokens",
       "schema": "billo_blog",
       "columns": {
-        "id": {
-          "name": "id",
+        "internal_id": {
+          "name": "internal_id",
           "type": "bigserial",
           "primaryKey": true,
           "notNull": true
         },
-        "public_id": {
-          "name": "public_id",
+        "id": {
+          "name": "id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -86,8 +86,8 @@
         }
       },
       "indexes": {
-        "api_token_token_hash_index": {
-          "name": "api_token_token_hash_index",
+        "api_tokens_token_hash_index": {
+          "name": "api_tokens_token_hash_index",
           "columns": [
             {
               "expression": "token_hash",
@@ -101,8 +101,8 @@
           "method": "btree",
           "with": {}
         },
-        "api_token_user_id_name_index": {
-          "name": "api_token_user_id_name_index",
+        "api_tokens_user_id_name_index": {
+          "name": "api_tokens_user_id_name_index",
           "columns": [
             {
               "expression": "user_id",
@@ -124,16 +124,16 @@
         }
       },
       "foreignKeys": {
-        "api_token_user_id_user_id_fk": {
-          "name": "api_token_user_id_user_id_fk",
-          "tableFrom": "api_token",
-          "tableTo": "user",
+        "api_tokens_user_id_users_internal_id_fk": {
+          "name": "api_tokens_user_id_users_internal_id_fk",
+          "tableFrom": "api_tokens",
+          "tableTo": "users",
           "schemaTo": "billo_blog",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "id"
+            "internal_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -141,11 +141,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "api_token_publicId_unique": {
-          "name": "api_token_publicId_unique",
+        "api_tokens_id_unique": {
+          "name": "api_tokens_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "public_id"
+            "id"
           ]
         }
       },
@@ -157,21 +157,21 @@
       "name": "articles",
       "schema": "billo_blog",
       "columns": {
-        "id": {
-          "name": "id",
+        "blog_id": {
+          "name": "blog_id",
+          "type": "bigserial",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "internal_id": {
+          "name": "internal_id",
           "type": "bigserial",
           "primaryKey": true,
           "notNull": true
         },
-        "public_id": {
-          "name": "public_id",
+        "id": {
+          "name": "id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "blog_id": {
-          "name": "blog_id",
-          "type": "bigserial",
           "primaryKey": false,
           "notNull": true
         },
@@ -191,28 +191,48 @@
           "name": "content",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": false,
-          "default": "'[]'::jsonb"
+          "notNull": true
         },
-        "created": {
-          "name": "created",
-          "type": "timestamp with time zone",
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": true
         },
-        "updated": {
-          "name": "updated",
+        "published_at": {
+          "name": "published_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "articles_blog_id_slug_index": {
+          "name": "articles_blog_id_slug_index",
+          "columns": [
+            {
+              "expression": "blog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "articles_blog_id_blogs_id_fk": {
-          "name": "articles_blog_id_blogs_id_fk",
+        "articles_blog_id_blogs_internal_id_fk": {
+          "name": "articles_blog_id_blogs_internal_id_fk",
           "tableFrom": "articles",
           "tableTo": "blogs",
           "schemaTo": "billo_blog",
@@ -220,7 +240,7 @@
             "blog_id"
           ],
           "columnsTo": [
-            "id"
+            "internal_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -228,20 +248,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "articles_publicId_unique": {
-          "name": "articles_publicId_unique",
+        "articles_blogId_id_unique": {
+          "name": "articles_blogId_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "public_id"
-          ]
-        },
-        "articles_slug_blogId_updated_unique": {
-          "name": "articles_slug_blogId_updated_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "slug",
             "blog_id",
-            "updated"
+            "id"
           ]
         }
       },
@@ -253,14 +265,14 @@
       "name": "blogs",
       "schema": "billo_blog",
       "columns": {
-        "id": {
-          "name": "id",
+        "internal_id": {
+          "name": "internal_id",
           "type": "bigserial",
           "primaryKey": true,
           "notNull": true
         },
-        "public_id": {
-          "name": "public_id",
+        "id": {
+          "name": "id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -293,16 +305,16 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "blogs_owner_id_user_id_fk": {
-          "name": "blogs_owner_id_user_id_fk",
+        "blogs_owner_id_users_internal_id_fk": {
+          "name": "blogs_owner_id_users_internal_id_fk",
           "tableFrom": "blogs",
-          "tableTo": "user",
+          "tableTo": "users",
           "schemaTo": "billo_blog",
           "columnsFrom": [
             "owner_id"
           ],
           "columnsTo": [
-            "id"
+            "internal_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -310,11 +322,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "blogs_publicId_unique": {
-          "name": "blogs_publicId_unique",
+        "blogs_id_unique": {
+          "name": "blogs_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "public_id"
+            "id"
           ]
         },
         "blogs_slug_unique": {
@@ -329,14 +341,132 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "billo_blog.drafts": {
+      "name": "drafts",
+      "schema": "billo_blog",
+      "columns": {
+        "internal_id": {
+          "name": "internal_id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "blog_id": {
+          "name": "blog_id",
+          "type": "bigserial",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content": {
+          "name": "content",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::jsonb"
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created": {
+          "name": "created",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated": {
+          "name": "updated",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "drafts_blog_id_blogs_internal_id_fk": {
+          "name": "drafts_blog_id_blogs_internal_id_fk",
+          "tableFrom": "drafts",
+          "tableTo": "blogs",
+          "schemaTo": "billo_blog",
+          "columnsFrom": [
+            "blog_id"
+          ],
+          "columnsTo": [
+            "internal_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "drafts_blogId_id_version_unique": {
+          "name": "drafts_blogId_id_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "blog_id",
+            "id",
+            "version"
+          ]
+        },
+        "drafts_blogId_slug_version_unique": {
+          "name": "drafts_blogId_slug_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "blog_id",
+            "slug",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "billo_blog.oauth_account": {
       "name": "oauth_account",
       "schema": "billo_blog",
       "columns": {
+        "internal_id": {
+          "name": "internal_id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "user_id": {
@@ -374,108 +504,16 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "oauth_account_user_id_user_id_fk": {
-          "name": "oauth_account_user_id_user_id_fk",
+        "oauth_account_user_id_users_internal_id_fk": {
+          "name": "oauth_account_user_id_users_internal_id_fk",
           "tableFrom": "oauth_account",
-          "tableTo": "user",
+          "tableTo": "users",
           "schemaTo": "billo_blog",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "billo_blog.published_articles": {
-      "name": "published_articles",
-      "schema": "billo_blog",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "bigserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "public_id": {
-          "name": "public_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "article_id": {
-          "name": "article_id",
-          "type": "bigserial",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "blog_id": {
-          "name": "blog_id",
-          "type": "bigserial",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "slug": {
-          "name": "slug",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "content": {
-          "name": "content",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'[]'::jsonb"
-        },
-        "published": {
-          "name": "published",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "published_articles_article_id_articles_id_fk": {
-          "name": "published_articles_article_id_articles_id_fk",
-          "tableFrom": "published_articles",
-          "tableTo": "articles",
-          "schemaTo": "billo_blog",
-          "columnsFrom": [
-            "article_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "published_articles_blog_id_blogs_id_fk": {
-          "name": "published_articles_blog_id_blogs_id_fk",
-          "tableFrom": "published_articles",
-          "tableTo": "blogs",
-          "schemaTo": "billo_blog",
-          "columnsFrom": [
-            "blog_id"
-          ],
-          "columnsTo": [
-            "id"
+            "internal_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -483,20 +521,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "published_articles_publicId_unique": {
-          "name": "published_articles_publicId_unique",
+        "oauth_account_id_unique": {
+          "name": "oauth_account_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "public_id"
-          ]
-        },
-        "published_articles_slug_blogId_published_unique": {
-          "name": "published_articles_slug_blogId_published_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "slug",
-            "blog_id",
-            "published"
+            "id"
           ]
         }
       },
@@ -504,14 +533,20 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "billo_blog.session": {
-      "name": "session",
+    "billo_blog.sessions": {
+      "name": "sessions",
       "schema": "billo_blog",
       "columns": {
+        "internal_id": {
+          "name": "internal_id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "user_id": {
@@ -543,39 +578,47 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "session_user_id_user_id_fk": {
-          "name": "session_user_id_user_id_fk",
-          "tableFrom": "session",
-          "tableTo": "user",
+        "sessions_user_id_users_internal_id_fk": {
+          "name": "sessions_user_id_users_internal_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
           "schemaTo": "billo_blog",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "id"
+            "internal_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "sessions_id_unique": {
+          "name": "sessions_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "billo_blog.user": {
-      "name": "user",
+    "billo_blog.users": {
+      "name": "users",
       "schema": "billo_blog",
       "columns": {
-        "id": {
-          "name": "id",
+        "internal_id": {
+          "name": "internal_id",
           "type": "bigserial",
           "primaryKey": true,
           "notNull": true
         },
-        "public_id": {
-          "name": "public_id",
+        "id": {
+          "name": "id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -625,15 +668,15 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "user_publicId_unique": {
-          "name": "user_publicId_unique",
+        "users_id_unique": {
+          "name": "users_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "public_id"
+            "id"
           ]
         },
-        "user_email_unique": {
-          "name": "user_email_unique",
+        "users_email_unique": {
+          "name": "users_email_unique",
           "nullsNotDistinct": false,
           "columns": [
             "email"

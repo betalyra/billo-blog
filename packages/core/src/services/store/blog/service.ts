@@ -2,15 +2,15 @@ import { Context, Effect, Layer, Option } from "effect";
 import { DrizzlePostgresProvider } from "../../db/postgres/provider.js";
 import {
   ArticlesTable,
-  BlogTable,
-  type GetArticle,
+  BlogsTable,
+  DraftsTable,
+  type GetDraft,
   type GetBlog,
 } from "../../../db/postgres/schema.js";
 import { z } from "zod";
 import { and, eq, sql, desc, or, lt } from "drizzle-orm";
 import { PaginatedAndCountedQuery, PaginatedQuery } from "../types.js";
 import { Block } from "@billo-blog/contract";
-import { cons } from "effect/List";
 import { EnvService } from "../../env/service.js";
 
 export const CreateBlogRequest = z.object({
@@ -21,7 +21,7 @@ export const CreateBlogRequest = z.object({
 export type CreateBlogRequest = z.infer<typeof CreateBlogRequest>;
 
 export const GetBlogRequest = z.object({
-  blogPublicId: z.string(),
+  id: z.string(),
   ownerId: z.number(),
 });
 export type GetBlogRequest = z.infer<typeof GetBlogRequest>;
@@ -36,35 +36,69 @@ export type GetBlogsRequest = z.infer<typeof GetBlogsRequest>;
 export type GetBlogsResponse = PaginatedAndCountedQuery & {
   blogs: GetBlog[];
 };
-export const CreateArticleRequest = z.object({
-  blogId: z.number(),
+
+export const DeleteBlogRequest = z.object({
+  id: z.string(),
+  ownerId: z.number(),
+});
+export type DeleteBlogRequest = z.infer<typeof DeleteBlogRequest>;
+
+export const CreateDraftRequest = z.object({
+  blogInternalId: z.number(),
   name: z.string().optional(),
   slug: z.string().optional(),
 });
-export type CreateArticleRequest = z.infer<typeof CreateArticleRequest>;
+export type CreateDraftRequest = z.infer<typeof CreateDraftRequest>;
 
-export const UpdateArticleRequest = z.object({
-  blogId: z.number(),
-  articlePublicId: z.string(),
+export const UpdateDraftRequest = z.object({
+  blogInternalId: z.number(),
+  id: z.string(),
   name: z.string().optional(),
   slug: z.string().optional(),
   content: z.array(Block).optional(),
 });
-export type UpdateArticleRequest = z.infer<typeof UpdateArticleRequest>;
-export const GetArticleRequest = z.object({
-  blogId: z.number(),
-  articlePublicId: z.string(),
+export type UpdateDraftRequest = z.infer<typeof UpdateDraftRequest>;
+export const GetDraftRequest = z.object({
+  blogInternalId: z.number(),
+  id: z.string(),
 });
-export type GetArticleRequest = z.infer<typeof GetArticleRequest>;
-export const GetArticlesRequest = PaginatedQuery.merge(
+export type GetDraftRequest = z.infer<typeof GetDraftRequest>;
+export const GetDraftsRequest = PaginatedQuery.merge(
   z.object({
-    blogId: z.number(),
+    blogInternalId: z.number(),
   })
 );
-export type GetArticlesRequest = z.infer<typeof GetArticlesRequest>;
-export type GetArticlesResponse = PaginatedAndCountedQuery & {
-  articles: GetArticle[];
+export type GetDraftsRequest = z.infer<typeof GetDraftsRequest>;
+export type GetDraftsResponse = PaginatedAndCountedQuery & {
+  drafts: GetDraft[];
 };
+
+export const UpsertArticleRequest = z.object({
+  blogInternalId: z.number(),
+  id: z.string(),
+  name: z.string().optional(),
+  slug: z.string().optional(),
+  content: z.array(Block).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+export type UpsertArticleRequest = z.infer<typeof UpsertArticleRequest>;
+
+export const DeleteArticleRequest = z.object({
+  blogInternalId: z.number(),
+  id: z.string(),
+});
+export type DeleteArticleRequest = z.infer<typeof DeleteArticleRequest>;
+
+export const DeleteDraftRequest = z.object({
+  blogInternalId: z.number(),
+  draftId: z.number(),
+});
+export type DeleteDraftRequest = z.infer<typeof DeleteDraftRequest>;
+
+export const UpsertArticleResponse = z.object({
+  articleId: z.string(),
+});
+export type UpsertArticleResponse = z.infer<typeof UpsertArticleResponse>;
 export interface IBlogStoreService {
   createBlog: (
     request: CreateBlogRequest
@@ -75,18 +109,24 @@ export interface IBlogStoreService {
   getBlogs: (
     request: GetBlogsRequest
   ) => Effect.Effect<GetBlogsResponse, Error>;
-  createArticle: (
-    request: CreateArticleRequest
-  ) => Effect.Effect<Option.Option<GetArticle>, Error>;
-  updateArticle: (
-    request: UpdateArticleRequest
-  ) => Effect.Effect<Option.Option<GetArticle>, Error>;
-  getArticle: (
-    request: GetArticleRequest
-  ) => Effect.Effect<Option.Option<GetArticle>, Error>;
-  getArticles: (
-    request: GetArticlesRequest
-  ) => Effect.Effect<GetArticlesResponse, Error>;
+  deleteBlog: (request: DeleteBlogRequest) => Effect.Effect<void, Error>;
+  createDraft: (
+    request: CreateDraftRequest
+  ) => Effect.Effect<Option.Option<GetDraft>, Error>;
+  updateDraft: (
+    request: UpdateDraftRequest
+  ) => Effect.Effect<Option.Option<GetDraft>, Error>;
+  getDraft: (
+    request: GetDraftRequest
+  ) => Effect.Effect<Option.Option<GetDraft>, Error>;
+  getDrafts: (
+    request: GetDraftsRequest
+  ) => Effect.Effect<GetDraftsResponse, Error>;
+  deleteDraft: (request: DeleteDraftRequest) => Effect.Effect<void, Error>;
+  upsertArticle: (
+    request: UpsertArticleRequest
+  ) => Effect.Effect<UpsertArticleResponse, Error>;
+  deleteArticle: (request: DeleteArticleRequest) => Effect.Effect<void, Error>;
 }
 export class BlogStoreService extends Context.Tag("BlogStoreService")<
   BlogStoreService,
@@ -107,7 +147,7 @@ export const BlogStoreServiceLive = Layer.effect(
       Effect.gen(function* () {
         const blog = yield* Effect.tryPromise(() =>
           postgresDrizzle
-            .insert(BlogTable)
+            .insert(BlogsTable)
             .values({
               ownerId,
               name,
@@ -121,18 +161,13 @@ export const BlogStoreServiceLive = Layer.effect(
           return Option.some(blog[0]!);
         }
       });
-    const getBlog: IBlogStoreService["getBlog"] = ({ blogPublicId, ownerId }) =>
+    const getBlog: IBlogStoreService["getBlog"] = ({ id, ownerId }) =>
       Effect.gen(function* () {
         const blog = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
-            .from(BlogTable)
-            .where(
-              and(
-                eq(BlogTable.publicId, blogPublicId),
-                eq(BlogTable.ownerId, ownerId)
-              )
-            )
+            .from(BlogsTable)
+            .where(and(eq(BlogsTable.id, id), eq(BlogsTable.ownerId, ownerId)))
         );
         if (blog.length === 0) {
           return Option.none();
@@ -150,17 +185,17 @@ export const BlogStoreServiceLive = Layer.effect(
           Effect.tryPromise(() =>
             postgresDrizzle
               .select()
-              .from(BlogTable)
-              .where(eq(BlogTable.ownerId, ownerId))
-              .orderBy(desc(BlogTable.created))
+              .from(BlogsTable)
+              .where(eq(BlogsTable.ownerId, ownerId))
+              .orderBy(desc(BlogsTable.created))
               .limit(limit)
               .offset(page * limit)
           ),
           Effect.tryPromise(() =>
             postgresDrizzle
               .select({ count: sql<number>`count(*) :: int` })
-              .from(BlogTable)
-              .where(eq(BlogTable.ownerId, ownerId))
+              .from(BlogsTable)
+              .where(eq(BlogsTable.ownerId, ownerId))
           ).pipe(Effect.map((result) => result[0]?.count ?? 0)),
         ]);
         return {
@@ -170,17 +205,26 @@ export const BlogStoreServiceLive = Layer.effect(
           limit,
         };
       });
-    const createArticle: IBlogStoreService["createArticle"] = ({
-      blogId,
+
+    const deleteBlog: IBlogStoreService["deleteBlog"] = ({ id, ownerId }) =>
+      Effect.gen(function* () {
+        yield* Effect.tryPromise(() =>
+          postgresDrizzle
+            .delete(BlogsTable)
+            .where(and(eq(BlogsTable.id, id), eq(BlogsTable.ownerId, ownerId)))
+        );
+      });
+    const createDraft: IBlogStoreService["createDraft"] = ({
+      blogInternalId,
       name,
       slug,
     }) =>
       Effect.gen(function* () {
         const article = yield* Effect.tryPromise(() =>
           postgresDrizzle
-            .insert(ArticlesTable)
+            .insert(DraftsTable)
             .values({
-              blogId,
+              blogId: blogInternalId,
               name,
               slug,
               updated: new Date(),
@@ -194,9 +238,9 @@ export const BlogStoreServiceLive = Layer.effect(
           return Option.some(article[0]!);
         }
       });
-    const updateArticle: IBlogStoreService["updateArticle"] = ({
-      blogId,
-      articlePublicId,
+    const updateDraft: IBlogStoreService["updateDraft"] = ({
+      blogInternalId,
+      id,
       name,
       slug,
       content,
@@ -207,36 +251,35 @@ export const BlogStoreServiceLive = Layer.effect(
             // Get latest version
             const latest = await tx
               .select({
-                version: ArticlesTable.version,
-                updated: ArticlesTable.updated,
-                status: ArticlesTable.status,
+                version: DraftsTable.version,
+                updated: DraftsTable.updated,
               })
-              .from(ArticlesTable)
+              .from(DraftsTable)
               .where(
                 and(
-                  eq(ArticlesTable.blogId, blogId),
-                  eq(ArticlesTable.publicId, articlePublicId)
+                  eq(DraftsTable.blogId, blogInternalId),
+                  eq(DraftsTable.id, id)
                 )
               )
-              .orderBy(desc(ArticlesTable.updated))
+              .orderBy(desc(DraftsTable.updated))
               .limit(1);
             if (!latest || latest.length === 0) {
               throw new Error("No article found");
             }
-            const { version, updated, status } = latest[0]!;
+            const { version, updated } = latest[0]!;
 
             const now = new Date();
-            const secondsAgo = ARTICLE_UPDATE_INTERVAL;
+            const secondsAgoDate = new Date(
+              now.getTime() - ARTICLE_UPDATE_INTERVAL * 1000
+            );
 
-            const secondsAgoDate = new Date(now.getTime() - secondsAgo * 1000);
-
-            if (new Date(updated) < secondsAgoDate || status === "published") {
+            if (new Date(updated) < secondsAgoDate) {
               // Insert a new version if the latest version is older than one minute
               return await tx
-                .insert(ArticlesTable)
+                .insert(DraftsTable)
                 .values({
-                  blogId,
-                  publicId: articlePublicId,
+                  blogId: blogInternalId,
+                  id,
                   name,
                   slug,
                   content,
@@ -247,13 +290,13 @@ export const BlogStoreServiceLive = Layer.effect(
             } else {
               // Update the latest version if it's within the last minute
               return await tx
-                .update(ArticlesTable)
+                .update(DraftsTable)
                 .set({ name, slug, content, updated: now })
                 .where(
                   and(
-                    eq(ArticlesTable.blogId, blogId),
-                    eq(ArticlesTable.publicId, articlePublicId),
-                    eq(ArticlesTable.version, version)
+                    eq(DraftsTable.blogId, blogInternalId),
+                    eq(DraftsTable.id, id),
+                    eq(DraftsTable.version, version)
                   )
                 )
                 .returning();
@@ -267,19 +310,16 @@ export const BlogStoreServiceLive = Layer.effect(
         }
       });
 
-    const getArticle: IBlogStoreService["getArticle"] = ({
-      blogId,
-      articlePublicId,
-    }) =>
+    const getDraft: IBlogStoreService["getDraft"] = ({ blogInternalId, id }) =>
       Effect.gen(function* () {
         const article = yield* Effect.tryPromise(() =>
           postgresDrizzle
             .select()
-            .from(ArticlesTable)
+            .from(DraftsTable)
             .where(
               and(
-                eq(ArticlesTable.blogId, blogId),
-                eq(ArticlesTable.publicId, articlePublicId)
+                eq(DraftsTable.blogId, blogInternalId),
+                eq(DraftsTable.id, id)
               )
             )
         );
@@ -289,44 +329,107 @@ export const BlogStoreServiceLive = Layer.effect(
           return Option.some(article[0]!);
         }
       });
-    const getArticles: IBlogStoreService["getArticles"] = ({
-      blogId,
+    const getDrafts: IBlogStoreService["getDrafts"] = ({
+      blogInternalId,
       page,
       limit,
     }) =>
       Effect.gen(function* () {
-        const [articles, count] = yield* Effect.all([
+        const [drafts, count] = yield* Effect.all([
           Effect.tryPromise(() =>
             postgresDrizzle
               .select()
-              .from(ArticlesTable)
-              .where(eq(ArticlesTable.blogId, blogId))
-              .orderBy(desc(ArticlesTable.updated))
+              .from(DraftsTable)
+              .where(eq(DraftsTable.blogId, blogInternalId))
+              .orderBy(desc(DraftsTable.updated))
               .limit(limit)
               .offset(page * limit)
           ),
           Effect.tryPromise(() =>
             postgresDrizzle
               .select({ count: sql<number>`count(*) :: int` })
-              .from(ArticlesTable)
-              .where(eq(ArticlesTable.blogId, blogId))
+              .from(DraftsTable)
+              .where(eq(DraftsTable.blogId, blogInternalId))
           ).pipe(Effect.map((result) => result[0]?.count ?? 0)),
         ]);
         return {
-          articles,
+          drafts,
           count,
           page,
           limit,
         };
       });
+
+    const deleteDraft: IBlogStoreService["deleteDraft"] = ({
+      blogInternalId,
+      draftId,
+    }) => Effect.gen(function* () {});
+
+    const upsertArticle: IBlogStoreService["upsertArticle"] = ({
+      blogInternalId,
+      id,
+      name,
+      slug,
+      content,
+      metadata,
+    }) =>
+      Effect.gen(function* () {
+        const article = yield* Effect.tryPromise(() =>
+          postgresDrizzle
+            .insert(ArticlesTable)
+            .values({
+              blogId: blogInternalId,
+              id,
+              name,
+              slug,
+              content,
+              metadata,
+              publishedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: [ArticlesTable.blogId, ArticlesTable.id],
+              set: { name, slug, content, metadata, publishedAt: new Date() },
+            })
+            .returning()
+        );
+        if (article.length === 0) {
+          return yield* Effect.fail(new Error("Failed to upsert article"));
+        } else {
+          return {
+            articleId: article[0]!.id,
+          };
+        }
+      });
+
+    const deleteArticle: IBlogStoreService["deleteArticle"] = ({
+      blogInternalId,
+      id,
+    }) =>
+      Effect.gen(function* () {
+        yield* Effect.tryPromise(() =>
+          postgresDrizzle
+            .delete(ArticlesTable)
+            .where(
+              and(
+                eq(ArticlesTable.blogId, blogInternalId),
+                eq(ArticlesTable.id, id)
+              )
+            )
+        );
+      });
+
     return {
       createBlog,
       getBlog,
       getBlogs,
-      createArticle,
-      updateArticle,
-      getArticle,
-      getArticles,
+      deleteBlog,
+      createDraft,
+      updateDraft,
+      getDraft,
+      getDrafts,
+      deleteDraft,
+      upsertArticle,
+      deleteArticle,
     };
   })
 );
