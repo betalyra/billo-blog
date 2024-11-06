@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import type { Block } from "@billo-blog/contract";
 
 export const schema = pgSchema("billo_blog");
 
@@ -136,8 +137,8 @@ export const DraftsTable = schema.table(
       .references(() => BlogsTable.internalId, { onDelete: "cascade" }),
     name: text(),
     slug: text(),
-    content: jsonb().default([]),
-    metadata: jsonb().default({}),
+    content: jsonb().notNull().default([]).$type<Block[]>(),
+    metadata: jsonb().notNull().default({}).$type<Record<string, any>>(),
     version: integer().notNull().default(0),
     created: timestamp({ mode: "date", withTimezone: true })
       .notNull()
@@ -167,8 +168,8 @@ export const ArticlesTable = schema.table(
     id: text().notNull(),
     name: text(),
     slug: text(),
-    content: jsonb().notNull(),
-    metadata: jsonb().notNull(),
+    content: jsonb().notNull().default([]).$type<Block[]>(),
+    metadata: jsonb().notNull().default({}).$type<Record<string, any>>(),
     publishedAt: timestamp({ mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),

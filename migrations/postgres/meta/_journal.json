@@ -8,6 +8,20 @@
       "when": 1730929040801,
       "tag": "0000_last_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1730930287378,
+      "tag": "0001_daily_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1730930368255,
+      "tag": "0002_past_stryfe",
+      "breakpoints": true
     }
   ]
 }

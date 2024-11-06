@@ -395,8 +395,8 @@ export const BlogServiceLive = Layer.effect(
           blogInternalId: blog.value.internalId,
           name: draft.value.name ?? undefined,
           slug: draft.value.slug ?? undefined,
-          content: draft.value.content as Block[],
-          metadata: draft.value.metadata as Record<string, any>,
+          content: draft.value.content,
+          metadata: draft.value.metadata,
         });
         return {
           articleId: article.articleId,
