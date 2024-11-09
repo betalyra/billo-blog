@@ -1,10 +1,10 @@
 {
     "version": 2,
-    "outputDirectory": "./dist",
+    "outputDirectory": "./dist/vercel",
     "rewrites": [
         {
             "source": "/(.*)",
-            "destination": "/index.js"
+            "destination": "/"
         }
     ]
 }
