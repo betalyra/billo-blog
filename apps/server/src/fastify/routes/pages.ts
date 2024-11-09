@@ -102,6 +102,101 @@ export default fp(async function (fastify: FastifyInstance) {
 
       return { status: 200, body: result };
     },
+    createApiToken: async ({ body, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { createApiToken } = yield* BlogService;
+        return yield* createApiToken(body);
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+      if (Either.isLeft(result)) {
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      return { status: 200, body: result.right };
+    },
+    getApiToken: async ({ params: { tokenId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getApiToken } = yield* BlogService;
+        return yield* getApiToken({ tokenId });
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+      if (Either.isLeft(result)) {
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      if (Option.isNone(result.right)) {
+        return { status: 404, body: { error: "Token not found" } };
+      }
+      return { status: 200, body: result.right.value };
+    },
+    getApiTokens: async ({ query, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getApiTokens } = yield* BlogService;
+        return yield* getApiTokens(query);
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+      if (Either.isLeft(result)) {
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      return { status: 200, body: result.right };
+    },
+    revokeApiToken: async ({ params: { tokenId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { revokeApiToken } = yield* BlogService;
+        return yield* revokeApiToken({ tokenId });
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+      if (Either.isLeft(result)) {
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      return { status: 200, body: result.right };
+    },
     createBlog: async ({ body, request }) => {
       const token = request.bearerToken;
       if (!token) {
@@ -213,14 +308,21 @@ export default fp(async function (fastify: FastifyInstance) {
       const program = Effect.gen(function* () {
         const { createDraft } = yield* BlogService;
         return yield* createDraft({ blogId }, body);
-      });
+      }).pipe(Effect.either);
 
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
 
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
       return {
         status: 200,
-        body: { draftId: result.draftId },
+        body: result.right,
       };
     },
     getDrafts: async ({
@@ -273,7 +375,7 @@ export default fp(async function (fastify: FastifyInstance) {
       const result = await Effect.runPromise(runnable);
 
       if (Option.isNone(result)) {
-        return { status: 404, body: { error: "Article not found" } };
+        return { status: 404, body: { error: "Draft not found" } };
       }
 
       return {
@@ -313,10 +415,37 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
-    deleteDraft: async ({ params: { blogId, draftId } }) => {
+    deleteDraft: async ({ params: { blogId, draftId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+
+      const program = Effect.gen(function* () {
+        const { deleteDraft } = yield* BlogService;
+        return yield* deleteDraft({ blogId, draftId });
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
       return {
         status: 200,
-        body: {},
+        body: result.right,
       };
     },
     getDraftVersions: async ({ params: { blogId, draftId } }) => {
@@ -324,6 +453,8 @@ export default fp(async function (fastify: FastifyInstance) {
         status: 200,
         body: {
           count: 1,
+          limit: 10,
+          page: 1,
           versions: [],
         },
       };
@@ -361,39 +492,113 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
-    deleteArticle: async ({ params: { blogId, articleId } }) => {
+    deleteArticle: async ({ params: { blogId, articleId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+
+      const program = Effect.gen(function* () {
+        const { deleteArticle } = yield* BlogService;
+        return yield* deleteArticle({ blogId, articleId });
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
       return {
         status: 200,
-        body: { articleId },
+        body: {},
       };
     },
-    getArticles: async ({ params: { blogId }, query: { limit, page } }) => {
+    getArticles: async ({
+      params: { blogId },
+      query: { limit, page },
+      request,
+    }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+
+      const program = Effect.gen(function* () {
+        const { getArticles } = yield* BlogService;
+        return yield* getArticles({ blogId }, { limit, page });
+      }).pipe(Effect.either);
+
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
       return {
         status: 200,
-        body: {
-          count: 1,
-          articles: [],
-        },
+        body: result.right,
       };
     },
-    getArticle: async ({ params: { blogId, articleId } }) => {
+    getArticle: async ({ params: { blogId, articleId }, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+
+      const program = Effect.gen(function* () {
+        const { getArticle } = yield* BlogService;
+        return yield* getArticle({ blogId, articleId });
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
+
+      if (Option.isNone(result.right)) {
+        return { status: 404, body: { error: "Article not found" } };
+      }
+
       return {
         status: 200,
-        body: {
-          articleId,
-          name: "My Article",
-          slug: "my-article",
-          authors: ["John Doe"],
-          og: {
-            title: "My Article",
-            description: "My Article",
-            image: "My Article",
-            url: "My Article",
-            siteName: "My Article",
-          },
-          ogArticle: null,
-          blocks: [],
-        },
+        body: result.right.value,
       };
     },
   });

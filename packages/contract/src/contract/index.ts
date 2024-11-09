@@ -2,9 +2,33 @@ import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { OGArticleSchema, OGBasicSchema } from "../types/opengraph.js";
 import { Block } from "../types/blocknote.js";
-import { cons } from "effect/List";
 export * from "../types/blocknote.js";
 const c = initContract();
+
+export const ID = z.string().cuid2();
+export type ID = z.infer<typeof ID>;
+
+export const PaginatedQuery = z.object({
+  limit: z.coerce.number().optional(),
+  page: z.coerce.number().optional(),
+});
+
+export type PaginatedQuery = z.infer<typeof PaginatedQuery>;
+
+export const Counted = z.object({
+  count: z.number(),
+});
+
+export const PaginatedResponse = z.object({
+  limit: z.number(),
+  page: z.number(),
+});
+export type PaginatedResponse = z.infer<typeof PaginatedResponse>;
+
+export type Counted = z.infer<typeof Counted>;
+
+export const PaginatedAndCounted = PaginatedResponse.merge(Counted);
+export type PaginatedAndCounted = z.infer<typeof PaginatedAndCounted>;
 
 export const CreateOAuthPathParams = z.object({
   provider: z.enum(["github"]),
@@ -26,24 +50,65 @@ export const OAuthValidationResponse = z.object({
 });
 export type OAuthValidationResponse = z.infer<typeof OAuthValidationResponse>;
 
-export const ID = z.string().cuid2();
-export type ID = z.infer<typeof ID>;
-
-export const Paginated = z.object({
-  limit: z.coerce.number().optional(),
-  page: z.coerce.number().optional(),
+export const CreateApiTokenRequest = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  permission: z.enum(["read", "write"]).optional().default("read"),
+  expiresAt: z.number().optional(),
 });
+export type CreateApiTokenRequest = z.infer<typeof CreateApiTokenRequest>;
 
-export type Paginated = z.infer<typeof Paginated>;
-
-export const Counted = z.object({
-  count: z.number(),
+export const CreateApiTokenResponse = z.object({
+  tokenId: ID,
 });
+export type CreateApiTokenResponse = z.infer<typeof CreateApiTokenResponse>;
 
-export type Counted = z.infer<typeof Counted>;
+export const UpdateApiTokenPathParams = z.object({
+  tokenId: ID,
+});
+export type UpdateApiTokenPathParams = z.infer<typeof UpdateApiTokenPathParams>;
 
-export const PaginatedAndCounted = Paginated.merge(Counted);
-export type PaginatedAndCounted = z.infer<typeof PaginatedAndCounted>;
+export const UpdateApiTokenRequest = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  permission: z.enum(["read", "write"]).optional(),
+  expiresAt: z.number().optional(),
+});
+export type UpdateApiTokenRequest = z.infer<typeof UpdateApiTokenRequest>;
+
+export const UpdateApiTokenResponse = z.object({
+  tokenId: ID,
+});
+export type UpdateApiTokenResponse = z.infer<typeof UpdateApiTokenResponse>;
+
+export const GetApiTokenPathParams = z.object({
+  tokenId: ID,
+});
+export type GetApiTokenPathParams = z.infer<typeof GetApiTokenPathParams>;
+
+export const GetApiTokenResponse = z.object({
+  tokenId: ID,
+  name: z.string(),
+  description: z.string().nullable(),
+  permission: z.enum(["read", "write"]),
+  expiresAt: z.number().nullable(),
+});
+export type GetApiTokenResponse = z.infer<typeof GetApiTokenResponse>;
+
+export const GetApiTokensQuery = PaginatedQuery;
+export type GetApiTokensQuery = z.infer<typeof GetApiTokensQuery>;
+
+export const GetApiTokensResponse = PaginatedAndCounted.merge(
+  z.object({
+    tokens: z.array(GetApiTokenResponse),
+  })
+);
+export type GetApiTokensResponse = z.infer<typeof GetApiTokensResponse>;
+
+export const RevokeApiTokenPathParams = z.object({
+  tokenId: ID,
+});
+export type RevokeApiTokenPathParams = z.infer<typeof RevokeApiTokenPathParams>;
 
 export const CreateBlogRequest = z
   .object({
@@ -160,12 +225,12 @@ export type Draft = z.infer<typeof Draft>;
 
 export const Article = z.object({
   articleId: ID,
-  name: z.string(),
-  slug: z.string(),
-  authors: ID.array(),
+  name: z.string().nullable(),
+  slug: z.string().nullable(),
+  authors: ID.array().nullable(),
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
-  blocks: z.array(Block),
+  blocks: z.array(Block).nullable(),
 });
 export type Article = z.infer<typeof Article>;
 
@@ -232,19 +297,21 @@ export const DeleteArticlePathParams = z.object({
 });
 export type DeleteArticlePathParams = z.infer<typeof DeleteArticlePathParams>;
 
-export const DeleteArticleResponse = z.object({
-  articleId: ID,
-});
-export type DeleteArticleResponse = z.infer<typeof DeleteArticleResponse>;
-
 export const GetArticlesPathParams = z.object({
   blogId: ID,
 });
 export type GetArticlesPathParams = z.infer<typeof GetArticlesPathParams>;
 
+export const ArticleSummary = z.object({
+  articleId: ID,
+  name: z.string().nullable(),
+  slug: z.string().nullable(),
+});
+export type ArticleSummary = z.infer<typeof ArticleSummary>;
+
 export const GetArticlesResponse = PaginatedAndCounted.merge(
   z.object({
-    articles: z.array(Article),
+    articles: z.array(ArticleSummary),
   })
 );
 export type GetArticlesResponse = z.infer<typeof GetArticlesResponse>;
@@ -301,6 +368,38 @@ export const billoblogContract = c.router(
         401: z.any(),
       },
     },
+    createApiToken: {
+      method: "POST",
+      path: "/tokens",
+      body: CreateApiTokenRequest,
+      responses: {
+        200: CreateApiTokenResponse,
+      },
+    },
+    getApiTokens: {
+      method: "GET",
+      path: "/tokens",
+      query: GetApiTokensQuery,
+      responses: {
+        200: GetApiTokensResponse,
+      },
+    },
+    getApiToken: {
+      method: "GET",
+      path: "/tokens/:tokenId",
+      pathParams: GetApiTokenPathParams,
+      responses: {
+        200: GetApiTokenResponse,
+      },
+    },
+    revokeApiToken: {
+      method: "DELETE",
+      path: "/tokens/:tokenId",
+      pathParams: RevokeApiTokenPathParams,
+      responses: {
+        200: z.any(),
+      },
+    },
     createBlog: {
       method: "POST",
       path: "/blogs",
@@ -312,7 +411,7 @@ export const billoblogContract = c.router(
     getBlogs: {
       method: "GET",
       path: "/blogs",
-      query: Paginated,
+      query: PaginatedQuery,
       responses: {
         200: GetBlogsResponse,
       },
@@ -356,7 +455,7 @@ export const billoblogContract = c.router(
       method: "GET",
       path: "/blogs/:blogId/drafts",
       pathParams: GetDraftsPathParams,
-      query: Paginated,
+      query: PaginatedQuery,
       responses: {
         200: GetDraftsResponse,
       },
@@ -391,7 +490,7 @@ export const billoblogContract = c.router(
       method: "GET",
       path: "/blogs/:blogId/drafts/:draftId/versions",
       pathParams: GetDraftVersionsPathParams,
-      query: Paginated,
+      query: PaginatedQuery,
       responses: {
         200: GetDraftVersionsResponse,
       },
@@ -410,14 +509,14 @@ export const billoblogContract = c.router(
       path: "/blogs/:blogId/articles/:articleId",
       pathParams: DeleteArticlePathParams,
       responses: {
-        200: DeleteArticleResponse,
+        200: z.any(),
       },
     },
     getArticles: {
       method: "GET",
       path: "/blogs/:blogId/articles",
       pathParams: GetArticlesPathParams,
-      query: Paginated,
+      query: PaginatedQuery,
       responses: {
         200: GetArticlesResponse,
       },

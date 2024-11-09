@@ -5,6 +5,9 @@ import { EnvService } from "../env/service.js";
 import { z } from "zod";
 import { InvalidTokenError, TokenExpiredError } from "../../errors/types.js";
 
+export const TokenType = z.enum(["user", "api"]);
+export type TokenType = z.infer<typeof TokenType>;
+
 const JWTPayloadSchema = z.object({
   jti: z.string(), // JWT ID (session ID)
   sub: z.string(), // Subject (user ID)
@@ -12,13 +15,14 @@ const JWTPayloadSchema = z.object({
   exp: z.number(), // Expiration time
 
   // Custom claims
-  type: z.literal("management"), // Token type to distinguish from other tokens
+  type: TokenType, // Token type to distinguish from other tokens
   email: z.string().optional(), // Optional: user's email if you want to include it
 });
 
 const CreateJWTParamsSchema = z.object({
   userId: z.string(),
   sessionToken: z.string(),
+  type: TokenType,
   email: z.string().optional(),
 });
 
@@ -60,7 +64,7 @@ export const JWTServiceLive = Layer.effect(
         const payload: Omit<JWTPayload, "iat" | "exp"> = {
           jti: params.sessionToken,
           sub: params.userId,
-          type: "management",
+          type: params.type,
           ...(params.email && { email: params.email }),
         };
 
