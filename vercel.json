@@ -1,5 +1,6 @@
 {
-    "buildCommand": "cd app/server && pnpm install && pnpm build",
+    "installCommand": "pnpm -r install",
+    "buildCommand": "pnpm -r build",
     "outputDirectory": "app/server",
     "rewrites": [
         {
