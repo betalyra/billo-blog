@@ -1,0 +1,19 @@
+name: billo-blog
+services:
+  - name: api
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: betalyra/billo-blog
+    build_command: pnpm -r install && pnpm -r build
+    run_command: cd apps/server && pnpm start
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "31337"
