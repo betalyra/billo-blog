@@ -9,3 +9,5 @@ export default async function handler(req: any, reply: any) {
   await app.ready();
   app.server.emit("request", req, reply);
 }
+
+await initFastify();
