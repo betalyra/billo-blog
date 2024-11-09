@@ -2,7 +2,7 @@
   "name": "@billo-blog/server",
   "version": "1.0.0",
   "description": "",
-  "main": "api/index.js",
+  "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "build": "tsc",

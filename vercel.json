@@ -1,7 +1,7 @@
 {
     "installCommand": "pnpm -r install",
     "buildCommand": "pnpm -r build",
-    "outputDirectory": "apps/server/build",
+    "outputDirectory": "apps/server/dist",
     "rewrites": [
         {
             "source": "/(.*)",
