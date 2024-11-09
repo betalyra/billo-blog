@@ -1,6 +1,6 @@
 {
   "extends": "@total-typescript/tsconfig/tsc/no-dom/app", // For an app
   "compilerOptions": {
-    "outDir": "./api",
+    "outDir": "./dist",
   }
 }
