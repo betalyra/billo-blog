@@ -1,11 +1,11 @@
 {
     "installCommand": "pnpm -r install",
     "buildCommand": "pnpm -r build",
-    "outputDirectory": "app/server",
+    "outputDirectory": "apps/server",
     "rewrites": [
         {
             "source": "/(.*)",
-            "destination": "/app/server/api/serverless.js"
+            "destination": "/apps/server/api/serverless.js"
         }
     ]
 }
