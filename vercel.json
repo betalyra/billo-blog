@@ -1,0 +1,10 @@
+{
+    "buildCommand": "cd app/server && pnpm install && pnpm build",
+    "outputDirectory": "app/server",
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/app/server/api/serverless.js"
+        }
+    ]
+}
