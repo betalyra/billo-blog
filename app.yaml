@@ -1,4 +1,12 @@
 name: billo-blog
+health_check:
+  initial_delay_seconds: 30
+  period_seconds: 10
+  timeout_seconds: 5
+  success_threshold: 1
+  failure_threshold: 5
+  http_path: /health
+  port: 7654
 services:
   - name: api
     github:
