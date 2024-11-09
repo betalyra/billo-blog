@@ -1,7 +1,7 @@
 {
     "builds": [
         {
-            "src": "dist/vercel/index.js", // This matches your output file structure
+            "src": "dist/vercel/index.js",
             "use": "@vercel/node"
         }
     ],
