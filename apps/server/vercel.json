@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "outputDirectory": "./dist/vercel",
+    "outputDirectory": "./dist",
     "rewrites": [
         {
             "source": "/(.*)",
