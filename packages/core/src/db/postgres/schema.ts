@@ -166,6 +166,10 @@ export const ArticlesTable = schema.table(
       .references(() => BlogsTable.internalId, { onDelete: "cascade" }),
     internalId: bigserial({ mode: "number" }).primaryKey(),
     id: text().notNull(),
+    draftId: bigserial({ mode: "number" })
+      .unique()
+      .notNull()
+      .references(() => DraftsTable.internalId, { onDelete: "cascade" }),
     name: text(),
     slug: text(),
     content: jsonb().notNull().default([]).$type<Block[]>(),

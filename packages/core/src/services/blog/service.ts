@@ -1,9 +1,9 @@
-import { Context, Layer, Effect, Option } from "effect";
+import { Context, Layer, Effect, Option, Either } from "effect";
 import {
   Blog,
   Article,
   GetDraftPathParams,
-  Paginated,
+  PaginatedQuery,
   GetBlogPathParams,
   CreateBlogRequest,
   UpdateBlogPathParams,
@@ -30,6 +30,17 @@ import {
   Draft,
   PublishDraftPathParams,
   PublishDraftResponse,
+  GetArticlesPathParams,
+  GetArticlePathParams,
+  CreateApiTokenResponse,
+  CreateApiTokenRequest,
+  GetApiTokenResponse,
+  GetApiTokenPathParams,
+  UpdateApiTokenResponse,
+  UpdateApiTokenRequest,
+  UpdateApiTokenPathParams,
+  GetApiTokensResponse,
+  RevokeApiTokenPathParams,
 } from "@billo-blog/contract";
 import { GitHubService } from "../oauth/github.js";
 import { generateState } from "arctic";
@@ -43,6 +54,8 @@ import {
   UnauthorizedError,
 } from "../../errors/types.js";
 import { BlogStoreService } from "../store/blog/service.js";
+import * as store from "../store/blog/service.js";
+
 export type CreateOAuthResponse = {
   url: URL;
   state: string;
@@ -60,11 +73,27 @@ export type IBlogService = {
     pathParams: ValidateOAuthPathParams,
     query: OAuthValidationQuery
   ) => Effect.Effect<OAuthValidationResponse, Error>;
+  createApiToken: (
+    body: CreateApiTokenRequest
+  ) => Effect.Effect<CreateApiTokenResponse, StandardError, TokenProvider>;
+  getApiTokens: (
+    query: PaginatedQuery
+  ) => Effect.Effect<GetApiTokensResponse, StandardError, TokenProvider>;
+  getApiToken: (
+    pathParams: GetApiTokenPathParams
+  ) => Effect.Effect<
+    Option.Option<GetApiTokenResponse>,
+    StandardError,
+    TokenProvider
+  >;
+  revokeApiToken: (
+    pathParams: RevokeApiTokenPathParams
+  ) => Effect.Effect<void, StandardError, TokenProvider>;
   createBlog: (
     body?: CreateBlogRequest
   ) => Effect.Effect<Blog, StandardError, TokenProvider>;
   getBlogs: (
-    query: Paginated
+    query: PaginatedQuery
   ) => Effect.Effect<GetBlogsResponse, StandardError, TokenProvider>;
   getBlog: (
     pathParams: GetBlogPathParams
@@ -85,7 +114,7 @@ export type IBlogService = {
   ) => Effect.Effect<PublishDraftResponse, StandardError, TokenProvider>;
   getDrafts: (
     pathParams: GetDraftsPathParams,
-    query: Paginated
+    query: PaginatedQuery
   ) => Effect.Effect<GetDraftsResponse, StandardError, TokenProvider>;
   getDraft: (
     pathParams: GetDraftPathParams
@@ -97,6 +126,16 @@ export type IBlogService = {
   deleteDraft: (
     pathParams: DeleteDraftPathParams
   ) => Effect.Effect<void, StandardError, TokenProvider>;
+  deleteArticle: (
+    pathParams: DeleteArticlePathParams
+  ) => Effect.Effect<void, StandardError, TokenProvider>;
+  getArticles: (
+    pathParams: GetArticlesPathParams,
+    query: PaginatedQuery
+  ) => Effect.Effect<GetArticlesResponse, StandardError, TokenProvider>;
+  getArticle: (
+    pathParams: GetArticlePathParams
+  ) => Effect.Effect<Option.Option<Article>, StandardError, TokenProvider>;
 };
 
 export class BlogService extends Context.Tag("BlogService")<
@@ -119,26 +158,36 @@ export const BlogServiceLive = Layer.effect(
       TokenProvider
     > = Effect.gen(function* () {
       const tokenProvider = yield* TokenProvider;
+      const maybeAccessToken = tokenProvider.accessToken;
       yield* Effect.logDebug("Attempting to validate token");
-      if (Option.isNone(tokenProvider.accessToken)) {
+
+      // Just allow authorised access for the moment
+      if (Option.isNone(maybeAccessToken)) {
         yield* Effect.logDebug("No access token provided");
         return Effect.fail(new UnauthorizedError());
       }
       yield* Effect.logDebug("Verifying token");
-      const extractedToken = yield* jwtService.verifyToken(
-        tokenProvider.accessToken.value
-      );
+      const extractedToken = yield* jwtService
+        .verifyToken(maybeAccessToken.value)
+        .pipe(Effect.either);
 
+      if (Either.isLeft(extractedToken)) {
+        yield* Effect.logDebug("Token is invalid");
+        return Effect.fail(new UnauthorizedError());
+      }
       yield* Effect.logDebug("Getting user by public ID");
-      const user = yield* userService.getUserByPublicId(extractedToken.sub);
+      const user = yield* userService.getUserByPublicId(
+        extractedToken.right.sub
+      );
       if (Option.isNone(user)) {
         yield* Effect.logDebug("User not found");
         return Effect.fail(new UnauthorizedError());
       }
       yield* Effect.logDebug("Validating session token");
-      const session = yield* sessionService.validateSessionToken(
-        extractedToken.jti
-      );
+      const session = yield* sessionService.validateSessionToken({
+        sessionToken: extractedToken.right.jti,
+        type: extractedToken.right.type,
+      });
       if (Option.isNone(session)) {
         yield* Effect.logDebug("Session not found");
         return Effect.fail(new UnauthorizedError());
@@ -173,13 +222,14 @@ export const BlogServiceLive = Layer.effect(
         const existingUser = yield* Option.isSome(user)
           ? Effect.succeed(user.value)
           : userService.createUserFromGitHub(githubUser);
-        const sessionToken = yield* sessionService.createSession(
+        const sessionToken = yield* sessionService.createUserSession(
           existingUser.internalId
         );
 
         const token = yield* jwtService.createToken({
           userId: existingUser.id,
           sessionToken: sessionToken,
+          type: "user",
         });
         return {
           accessToken: token.token,
@@ -187,13 +237,80 @@ export const BlogServiceLive = Layer.effect(
         };
       });
 
+    const createApiToken: IBlogService["createApiToken"] = (body) =>
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const sessionToken = yield* sessionService.createApiSession({
+          name: body.name,
+          userId: user.internalId,
+          permission: body.permission,
+          expiresAt: body.expiresAt,
+        });
+
+        const token = yield* jwtService.createToken({
+          userId: user.id,
+          sessionToken: sessionToken.accessToken,
+          type: "api",
+        });
+        return {
+          accessToken: token.token,
+          expiresAt: token.expiresAt,
+          tokenId: sessionToken.tokenId,
+        };
+      });
+    const getApiTokens: IBlogService["getApiTokens"] = (query) =>
+      Effect.gen(function* () {
+        const limit = query.limit ?? 10;
+        const page = query.page ?? 0;
+        const { user } = yield* requireUser;
+        const apiTokens = yield* sessionService.getApiTokens({
+          userId: user.internalId,
+          limit,
+          page,
+        });
+        return {
+          tokens: apiTokens.apiTokens.map((apiToken) => ({
+            name: apiToken.name,
+            description: apiToken.description,
+            permission: apiToken.permission,
+            expiresAt: apiToken.expiresAt?.getTime() ?? null,
+            tokenId: apiToken.id,
+          })),
+          limit,
+          page,
+          count: apiTokens.count,
+        };
+      });
+    const getApiToken: IBlogService["getApiToken"] = (pathParams) =>
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const apiToken = yield* sessionService.getApiToken({
+          userId: user.internalId,
+          tokenId: pathParams.tokenId,
+        });
+        return apiToken.pipe(
+          Option.map((apiToken) => ({
+            name: apiToken.name,
+            description: apiToken.description,
+            permission: apiToken.permission,
+            expiresAt: apiToken.expiresAt?.getTime() ?? null,
+            tokenId: apiToken.id,
+          }))
+        );
+      });
+
+    const revokeApiToken: IBlogService["revokeApiToken"] = (pathParams) =>
+      Effect.fail(new Error("Not implemented"));
+
     const getBlogs: IBlogService["getBlogs"] = (query) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const limit = query.limit ?? 10;
+        const page = query.page ?? 0;
+        const { user } = yield* requireUser;
         const { blogs, count } = yield* blogStoreService.getBlogs({
           ownerId: user.internalId,
-          page: query.page ?? 0,
-          limit: query.limit ?? 10,
+          page,
+          limit,
         });
         return {
           blogs: blogs.map((blog) => ({
@@ -203,13 +320,13 @@ export const BlogServiceLive = Layer.effect(
             created: blog.created.toISOString(),
           })),
           count,
-          limit: query.limit,
-          page: query.page,
+          limit,
+          page,
         };
       });
     const getBlog: IBlogService["getBlog"] = (pathParams) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
           ownerId: user.internalId,
           id: pathParams.blogId,
@@ -226,7 +343,7 @@ export const BlogServiceLive = Layer.effect(
 
     const createBlog: IBlogService["createBlog"] = (body) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.createBlog({
           ownerId: user.internalId,
           name: body?.name,
@@ -246,10 +363,16 @@ export const BlogServiceLive = Layer.effect(
     const updateBlog: IBlogService["updateBlog"] = (pathParams, body) =>
       Effect.fail(new Error("Not implemented"));
     const deleteBlog: IBlogService["deleteBlog"] = (pathParams) =>
-      Effect.fail(new Error("Not implemented"));
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        yield* blogStoreService.deleteBlog({
+          ownerId: user.internalId,
+          id: pathParams.blogId,
+        });
+      });
     const getDrafts: IBlogService["getDrafts"] = (pathParams, query) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
           ownerId: user.internalId,
           id: pathParams.blogId,
@@ -279,7 +402,7 @@ export const BlogServiceLive = Layer.effect(
       });
     const getDraft: IBlogService["getDraft"] = (pathParams) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
           ownerId: user.internalId,
           id: pathParams.blogId,
@@ -309,7 +432,7 @@ export const BlogServiceLive = Layer.effect(
 
     const createDraft: IBlogService["createDraft"] = (pathParams, body) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
           ownerId: user.internalId,
           id: pathParams.blogId,
@@ -325,6 +448,7 @@ export const BlogServiceLive = Layer.effect(
           blogInternalId: blog.value.internalId,
           name: body?.name,
           slug: body?.slug,
+          blocks: body?.blocks,
         });
         if (Option.isNone(draft)) {
           return yield* Effect.fail(new Error("Draft not created"));
@@ -336,7 +460,7 @@ export const BlogServiceLive = Layer.effect(
 
     const updateDraft: IBlogService["updateDraft"] = (pathParams, body) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
           ownerId: user.internalId,
           id: pathParams.blogId,
@@ -350,7 +474,7 @@ export const BlogServiceLive = Layer.effect(
         const draft = yield* blogStoreService.updateDraft({
           blogInternalId: blog.value.internalId,
           id: pathParams.draftId,
-          content: body?.blocks,
+          blocks: body?.blocks,
           name: body?.name,
           slug: body?.slug,
         });
@@ -364,15 +488,28 @@ export const BlogServiceLive = Layer.effect(
           authors: [],
           og: null,
           ogArticle: null,
-          blocks: draft.value.content as Block[],
+          blocks: draft.value.content,
         };
       });
     const deleteDraft: IBlogService["deleteDraft"] = (pathParams) =>
-      Effect.fail(new Error("Not implemented"));
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.internalId,
+          id: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        yield* blogStoreService.deleteDraft({
+          blogInternalId: blog.value.internalId,
+          draftId: pathParams.draftId,
+        });
+      });
 
     const publishDraft: IBlogService["publishDraft"] = (pathParams) =>
       Effect.gen(function* () {
-        const { user, session } = yield* requireUser;
+        const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
           ownerId: user.internalId,
           id: pathParams.blogId,
@@ -393,6 +530,7 @@ export const BlogServiceLive = Layer.effect(
         const article = yield* blogStoreService.upsertArticle({
           id: draft.value.id,
           blogInternalId: blog.value.internalId,
+          draftId: draft.value.internalId,
           name: draft.value.name ?? undefined,
           slug: draft.value.slug ?? undefined,
           content: draft.value.content,
@@ -402,9 +540,87 @@ export const BlogServiceLive = Layer.effect(
           articleId: article.articleId,
         };
       });
+
+    const deleteArticle: IBlogService["deleteArticle"] = (pathParams) =>
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.internalId,
+          id: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        if (user.internalId !== blog.value.ownerId) {
+          return yield* Effect.fail(new UnauthorizedError());
+        }
+        yield* blogStoreService.deleteArticle({
+          blogInternalId: blog.value.internalId,
+          id: pathParams.articleId,
+        });
+      });
+
+    const getArticles: IBlogService["getArticles"] = (pathParams, query) =>
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.internalId,
+          id: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        const { articles, count, limit, page } =
+          yield* blogStoreService.getArticles({
+            blogInternalId: blog.value.internalId,
+            page: query.page ?? 0,
+            limit: query.limit ?? 10,
+          });
+        return {
+          articles: articles.map((article: store.GetArticleSummary) => ({
+            articleId: article.id,
+            name: article.name,
+            slug: article.slug,
+          })),
+          count,
+          limit,
+          page,
+        };
+      });
+    const getArticle: IBlogService["getArticle"] = (pathParams) =>
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.internalId,
+          id: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        const article = yield* blogStoreService.getArticle({
+          blogInternalId: blog.value.internalId,
+          id: pathParams.articleId,
+        });
+        return article.pipe(
+          Option.map((article) => ({
+            articleId: article.id,
+            name: article.name,
+            slug: article.slug,
+            // [TODO] Implement
+            authors: [],
+            og: null,
+            ogArticle: null,
+            blocks: article.content,
+          }))
+        );
+      });
     return {
       createOAuth,
       validateOAuth,
+      createApiToken,
+      getApiTokens,
+      getApiToken,
+      revokeApiToken,
       getBlogs,
       getBlog,
       createBlog,
@@ -416,6 +632,9 @@ export const BlogServiceLive = Layer.effect(
       updateDraft,
       deleteDraft,
       publishDraft,
+      deleteArticle,
+      getArticles,
+      getArticle,
     };
   })
 );
