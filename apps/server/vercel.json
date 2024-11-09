@@ -1,9 +1,8 @@
 {
-    "outputDirectory": "dist",
     "rewrites": [
         {
             "source": "/(.*)",
-            "destination": "/api"
+            "destination": "/dist"
         }
     ]
 }
