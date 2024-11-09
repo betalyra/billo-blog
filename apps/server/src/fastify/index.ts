@@ -14,7 +14,7 @@ declare module "fastify" {
     env: IEnv;
   }
 }
-const init = async () => {
+export const setupFastify = async () => {
   const env = IEnv.safeParse(process.env);
   if (!env.success) {
     throw new Error(env.error.message);
@@ -36,9 +36,11 @@ const init = async () => {
     console.error(error);
     reply.status(500).send({ ok: false });
   });
-  await fastify.ready();
-
-  await fastify.listen({ port: env.data.PORT, host: env.data.HOST });
-  fastify.log.info(`🪁 Server started on ${env.data.HOST}:${env.data.PORT}`);
+  return fastify;
 };
-export default init;
+const startFastify = async () => {
+  const fastify = await setupFastify();
+  await fastify.ready();
+  await fastify.listen({ port: fastify.env.PORT, host: fastify.env.HOST });
+};
+export default startFastify;
