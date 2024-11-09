@@ -1,6 +1,4 @@
-import initFastify, { setupFastify } from "./fastify/index.js";
-
-// await initFastify();
+import { setupFastify } from "../fastify/index.js";
 
 const app = await setupFastify();
 
