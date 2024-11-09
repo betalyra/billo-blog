@@ -23,6 +23,7 @@
     "@fastify/swagger-ui": "^5.1.0",
     "@ts-rest/fastify": "^3.51.0",
     "@ts-rest/open-api": "^3.51.0",
+    "@vercel/node": "^3.2.24",
     "drizzle-orm": "^0.36.0",
     "fastify": "^5.0.0",
     "fastify-healthcheck": "^5.0.0",
