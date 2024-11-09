@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "pnpm --filter @billo-blog/core build && pnpm --filter @billo-blog/contract build && pnpm --filter @billo-blog/server build",
+    "build": "pnpm --filter @billo-blog/contract build && pnpm --filter @billo-blog/core build && pnpm --filter @billo-blog/server build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
