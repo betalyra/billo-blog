@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const IEnv = z.object({
   HOST: z.string().optional().default("localhost"),
-  PORT: z.number().optional().default(31337),
+  PORT: z.coerce.number().optional().default(31337),
   SESSION_SECRET: z.string(),
   SESSION_COOKIE_URL: z.string().url(),
   SESSION_COOKIE_SECURE: z.coerce.boolean().optional().default(true),

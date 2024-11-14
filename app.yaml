@@ -14,11 +14,8 @@ services:
       deploy_on_push: true
       repo: betalyra/billo-blog
     build_command: >
-      pnpm install &&
-      cd packages/contract && pnpm build &&
-      cd ../core && pnpm build &&
-      cd ../../apps/server && pnpm build
-    run_command: cd apps/server && pnpm start
+      pnpm install && pnpm -r build
+    run_command: pnpm --filter "./apps/server" start
     environment_slug: node-js
     instance_count: 1
     instance_size_slug: basic-xxs
