@@ -62,7 +62,7 @@ export default fp(async function (fastify: FastifyInstance) {
       const program = Effect.gen(function* () {
         const { createOAuth } = yield* BlogService;
         return yield* createOAuth({ provider });
-      });
+      }).pipe(Effect.either);
 
       const runnable = Effect.provide(program, Dependencies);
       const result = await Effect.runPromise(runnable);
@@ -76,7 +76,13 @@ export default fp(async function (fastify: FastifyInstance) {
         domain: fastify.env.SESSION_COOKIE_URL?.split("://")[1],
       });
 
-      return reply.header("Set-Cookie", cookie).redirect(result.url.toString());
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      return reply
+        .header("Set-Cookie", cookie)
+        .redirect(result.right.url.toString());
     },
     validateOAuth: async ({
       params: { provider },
@@ -95,12 +101,16 @@ export default fp(async function (fastify: FastifyInstance) {
       const program = Effect.gen(function* () {
         const { validateOAuth } = yield* BlogService;
         return yield* validateOAuth({ provider }, { code, state });
-      });
+      }).pipe(Effect.either);
 
       const runnable = Effect.provide(program, Dependencies);
       const result = await Effect.runPromise(runnable);
 
-      return { status: 200, body: result };
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      return { status: 200, body: result.right };
     },
     createApiToken: async ({ body, request }) => {
       const token = request.bearerToken;

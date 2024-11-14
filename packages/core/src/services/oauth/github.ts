@@ -44,9 +44,7 @@ export const GitHubServiceLive = Layer.effect(
 
     const getGitHubUser: IGitHubService["getGitHubUser"] = (tokens) =>
       Effect.gen(function* () {
-        yield* Effect.logInfo(
-          `Getting GitHub user with tokens: ${JSON.stringify(tokens)}`
-        );
+        yield* Effect.logInfo(`Getting GitHub user.`);
         const result = yield* Effect.tryPromise((signal) =>
           fetch("https://api.github.com/user", {
             headers: {
@@ -55,24 +53,10 @@ export const GitHubServiceLive = Layer.effect(
             signal,
           })
         );
-        yield* Effect.logDebug(`GitHub user result: ${result}`);
-        const emailsResponse = yield* Effect.tryPromise(() =>
-          fetch("https://api.github.com/user/emails", {
-            headers: {
-              Authorization: `Bearer ${tokens.accessToken()}`,
-            },
-          })
-        );
-        if (emailsResponse.ok) {
-          const emails = yield* Effect.tryPromise(() => emailsResponse.json());
-          yield* Effect.logDebug(
-            `GitHub user emails result: ${JSON.stringify(emails)}`
-          );
-        }
+        yield* Effect.logDebug(`Got GitHub user.`);
 
         if (result.ok) {
           const json = yield* Effect.tryPromise(() => result.json());
-          yield* Effect.logDebug(`GitHub user json: ${JSON.stringify(json)}`);
           const parsedGitHubUser = GitHubUser.safeParse(json);
           if (parsedGitHubUser.success) {
             return Effect.succeed(parsedGitHubUser.data);
