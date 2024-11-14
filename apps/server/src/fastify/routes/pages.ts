@@ -67,7 +67,11 @@ export default fp(async function (fastify: FastifyInstance) {
       const runnable = Effect.provide(program, Dependencies);
       const result = await Effect.runPromise(runnable);
 
-      const cookie = fastifyCookie.serialize("state", result.state, {
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return { status: 500, body: { error: "Internal server error" } };
+      }
+      const cookie = fastifyCookie.serialize("state", result.right.state, {
         maxAge: 60 * 5,
         httpOnly: true,
         secure: fastify.env.SESSION_COOKIE_SECURE,
@@ -76,10 +80,6 @@ export default fp(async function (fastify: FastifyInstance) {
         domain: fastify.env.SESSION_COOKIE_URL?.split("://")[1],
       });
 
-      if (Either.isLeft(result)) {
-        fastify.log.error(result.left);
-        return { status: 500, body: { error: "Internal server error" } };
-      }
       return reply
         .header("Set-Cookie", cookie)
         .redirect(result.right.url.toString());
