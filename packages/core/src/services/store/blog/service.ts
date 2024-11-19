@@ -365,6 +365,8 @@ export const BlogStoreServiceLive = Layer.effect(
                 eq(DraftsTable.id, id)
               )
             )
+            .orderBy(desc(DraftsTable.version))
+            .limit(1)
         );
         if (article.length === 0) {
           return Option.none();
@@ -452,7 +454,7 @@ export const BlogStoreServiceLive = Layer.effect(
               publishedAt: new Date(),
             })
             .onConflictDoUpdate({
-              target: [ArticlesTable.draftId],
+              target: [ArticlesTable.blogId, ArticlesTable.id],
               set: {
                 id,
                 draftId,
