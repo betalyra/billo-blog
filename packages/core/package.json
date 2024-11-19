@@ -1,7 +1,7 @@
 {
   "name": "@billo-blog/core",
   "version": "1.0.0",
-  "description": "",
+  "description": "Core services for Billo Blog",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
