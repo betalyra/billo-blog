@@ -23,4 +23,4 @@ jobs:
         run: pnpm -r build
 
       - name: Publish
-        run: pnpx pkg-pr-new publish
+        run: pnpx pkg-pr-new publish './packages/*' './apps/*'
