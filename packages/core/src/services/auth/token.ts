@@ -12,7 +12,7 @@ const JWTPayloadSchema = z.object({
   jti: z.string(), // JWT ID (session ID)
   sub: z.string(), // Subject (user ID)
   iat: z.number(), // Issued at (timestamp)
-  exp: z.number(), // Expiration time
+  exp: z.number().optional(), // Expiration time
 
   // Custom claims
   type: TokenType, // Token type to distinguish from other tokens
@@ -80,7 +80,6 @@ export const JWTServiceLive = Layer.effect(
             .setJti(payload.jti); // Token ID
 
           if (params.expiresAt) {
-            console.log(`Setting expiration time to ${params.expiresAt}`);
             token.setExpirationTime(params.expiresAt);
           }
           return token.sign(secret);
@@ -105,14 +104,13 @@ export const JWTServiceLive = Layer.effect(
         ).pipe(
           Effect.mapError((error) => {
             if (error instanceof jose.errors.JWTExpired) {
-              console.log(`Token expired ${error.payload}`);
               return new TokenExpiredError();
             }
 
             return new InvalidTokenError();
           })
         );
-
+        yield* Effect.logDebug(`Token verified.`);
         const parsedPayload = JWTPayloadSchema.safeParse(payload);
         if (!parsedPayload.success) {
           return yield* Effect.fail(new InvalidTokenError());
