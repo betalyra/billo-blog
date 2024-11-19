@@ -19,24 +19,26 @@ const JWTPayloadSchema = z.object({
   email: z.string().optional(), // Optional: user's email if you want to include it
 });
 
-const CreateJWTParamsSchema = z.object({
+export const CreateJWTParamsSchema = z.object({
   userId: z.string(),
   sessionToken: z.string(),
   type: TokenType,
   email: z.string().optional(),
+  expiresAt: z.number().optional(),
 });
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 export type CreateJWTParams = z.infer<typeof CreateJWTParamsSchema>;
+export const CreateTokenResponse = z.object({
+  token: z.string(),
+  expiresAt: z.number().optional(),
+});
+export type CreateTokenResponse = z.infer<typeof CreateTokenResponse>;
 
 export type IJWTService = {
-  createToken: (params: CreateJWTParams) => Effect.Effect<
-    {
-      token: string;
-      expiresAt: number;
-    },
-    Error
-  >;
+  createToken: (
+    params: CreateJWTParams
+  ) => Effect.Effect<CreateTokenResponse, Error>;
   verifyToken: (
     token: string
   ) => Effect.Effect<JWTPayload, Error | InvalidTokenError | TokenExpiredError>;
@@ -59,7 +61,7 @@ export const JWTServiceLive = Layer.effect(
         );
 
         // Current timestamp in seconds
-        const now = Math.floor(Date.now() / 1000);
+        // const now = Math.floor(Date.now() / 1000);
 
         const payload: Omit<JWTPayload, "iat" | "exp"> = {
           jti: params.sessionToken,
@@ -68,21 +70,25 @@ export const JWTServiceLive = Layer.effect(
           ...(params.email && { email: params.email }),
         };
 
-        const jwt = yield* Effect.tryPromise(() =>
-          new jose.SignJWT(payload)
+        const jwt = yield* Effect.tryPromise(() => {
+          const token = new jose.SignJWT(payload)
             .setProtectedHeader({
               alg: "HS256", // HMAC with SHA-256
               typ: "JWT", // Type declaration
             })
             .setIssuedAt() // iat claim
-            .setExpirationTime("24h") // exp claim
-            .setJti(payload.jti) // Token ID
-            .sign(secret)
-        );
+            .setJti(payload.jti); // Token ID
+
+          if (params.expiresAt) {
+            console.log(`Setting expiration time to ${params.expiresAt}`);
+            token.setExpirationTime(params.expiresAt);
+          }
+          return token.sign(secret);
+        });
 
         return {
           token: jwt,
-          expiresAt: now + 60 * 60 * 24, // 1 day in seconds
+          expiresAt: params.expiresAt,
         };
       });
 

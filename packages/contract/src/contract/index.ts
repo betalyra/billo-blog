@@ -46,7 +46,7 @@ export type OAuthValidationQuery = z.infer<typeof OAuthValidationQuery>;
 
 export const OAuthValidationResponse = z.object({
   accessToken: z.string(),
-  expiresAt: z.number(),
+  expiresAt: z.number().optional(),
 });
 export type OAuthValidationResponse = z.infer<typeof OAuthValidationResponse>;
 
@@ -59,6 +59,8 @@ export const CreateApiTokenRequest = z.object({
 export type CreateApiTokenRequest = z.infer<typeof CreateApiTokenRequest>;
 
 export const CreateApiTokenResponse = z.object({
+  accessToken: z.string(),
+  expiresAt: z.number().optional(),
   tokenId: ID,
 });
 export type CreateApiTokenResponse = z.infer<typeof CreateApiTokenResponse>;

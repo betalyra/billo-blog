@@ -55,6 +55,7 @@ import {
 } from "../../errors/types.js";
 import { BlogStoreService } from "../store/blog/service.js";
 import * as store from "../store/blog/service.js";
+import { addDays } from "date-fns";
 
 export type CreateOAuthResponse = {
   url: URL;
@@ -225,15 +226,19 @@ export const BlogServiceLive = Layer.effect(
         const sessionToken = yield* sessionService.createUserSession(
           existingUser.internalId
         );
+        const now = new Date();
+        const expiresAt = addDays(now, 30);
 
-        const token = yield* jwtService.createToken({
-          userId: existingUser.id,
-          sessionToken: sessionToken,
-          type: "user",
-        });
+        const { token, expiresAt: tokenExpiresAt } =
+          yield* jwtService.createToken({
+            userId: existingUser.id,
+            sessionToken: sessionToken,
+            type: "user",
+            expiresAt: expiresAt.getTime(),
+          });
         return {
-          accessToken: token.token,
-          expiresAt: token.expiresAt,
+          accessToken: token,
+          expiresAt: tokenExpiresAt,
         };
       });
 
@@ -251,6 +256,7 @@ export const BlogServiceLive = Layer.effect(
           userId: user.id,
           sessionToken: sessionToken.accessToken,
           type: "api",
+          expiresAt: body.expiresAt,
         });
         return {
           accessToken: token.token,
