@@ -23,5 +23,6 @@
     "effect": "^3.10.11",
     "pino": "^9.5.0",
     "zod": "3.24.0-canary.20240701T200529"
-  }
+  },
+  "packageManager": "pnpm@9.12.3"
 }
