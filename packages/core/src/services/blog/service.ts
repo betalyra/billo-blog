@@ -41,6 +41,12 @@ import {
   UpdateApiTokenPathParams,
   GetApiTokensResponse,
   RevokeApiTokenPathParams,
+  GetDraftVariantsPathParams,
+  GetDraftVariantPathParams,
+  GetDraftVariantsResponse,
+  GetArticleVariantPathParams,
+  GetArticleVariantsResponse,
+  GetArticleVariantsPathParams,
 } from "@billo-blog/contract";
 import { GitHubService } from "../oauth/github.js";
 import { generateState } from "arctic";
@@ -120,6 +126,13 @@ export type IBlogService = {
   getDraft: (
     pathParams: GetDraftPathParams
   ) => Effect.Effect<Option.Option<Draft>, StandardError, TokenProvider>;
+  getDraftVariants: (
+    pathParams: GetDraftVariantsPathParams,
+    query: PaginatedQuery
+  ) => Effect.Effect<GetDraftVariantsResponse, StandardError, TokenProvider>;
+  getDraftVariant: (
+    pathParams: GetDraftVariantPathParams
+  ) => Effect.Effect<Option.Option<Draft>, StandardError, TokenProvider>;
   updateDraft: (
     pathParams: UpdateDraftPathParams,
     body: UpdateDraftRequest
@@ -136,6 +149,13 @@ export type IBlogService = {
   ) => Effect.Effect<GetArticlesResponse, StandardError, TokenProvider>;
   getArticle: (
     pathParams: GetArticlePathParams
+  ) => Effect.Effect<Option.Option<Article>, StandardError, TokenProvider>;
+  getArticleVariants: (
+    pathParams: GetArticleVariantsPathParams,
+    query: PaginatedQuery
+  ) => Effect.Effect<GetArticleVariantsResponse, StandardError, TokenProvider>;
+  getArticleVariant: (
+    pathParams: GetArticleVariantPathParams
   ) => Effect.Effect<Option.Option<Article>, StandardError, TokenProvider>;
 };
 
@@ -432,9 +452,18 @@ export const BlogServiceLive = Layer.effect(
             og: null,
             ogArticle: null,
             blocks: draft.content as Block[],
+            variantType: draft.variantType,
+            variantKey: draft.variantKey,
           }))
         );
       });
+
+    const getDraftVariants: IBlogService["getDraftVariants"] = (
+      pathParams,
+      query
+    ) => Effect.fail(new Error("Not implemented"));
+    const getDraftVariant: IBlogService["getDraftVariant"] = (pathParams) =>
+      Effect.fail(new Error("Not implemented"));
 
     const createDraft: IBlogService["createDraft"] = (pathParams, body) =>
       Effect.gen(function* () {
@@ -495,6 +524,8 @@ export const BlogServiceLive = Layer.effect(
           og: null,
           ogArticle: null,
           blocks: draft.value.content,
+          variantType: draft.value.variantType,
+          variantKey: draft.value.variantKey,
         };
       });
     const deleteDraft: IBlogService["deleteDraft"] = (pathParams) =>
@@ -617,9 +648,20 @@ export const BlogServiceLive = Layer.effect(
             og: null,
             ogArticle: null,
             blocks: article.content,
+            variantType: article.variantType,
+            variantKey: article.variantKey,
           }))
         );
       });
+
+    const getArticleVariants: IBlogService["getArticleVariants"] = (
+      pathParams,
+      query
+    ) => Effect.fail(new Error("Not implemented"));
+
+    const getArticleVariant: IBlogService["getArticleVariant"] = (pathParams) =>
+      Effect.fail(new Error("Not implemented"));
+
     return {
       createOAuth,
       validateOAuth,
@@ -634,6 +676,8 @@ export const BlogServiceLive = Layer.effect(
       deleteBlog,
       getDrafts,
       getDraft,
+      getDraftVariants,
+      getDraftVariant,
       createDraft,
       updateDraft,
       deleteDraft,
@@ -641,6 +685,8 @@ export const BlogServiceLive = Layer.effect(
       deleteArticle,
       getArticles,
       getArticle,
+      getArticleVariants,
+      getArticleVariant,
     };
   })
 );
