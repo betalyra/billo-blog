@@ -165,6 +165,18 @@ export const GetBlogsResponse = PaginatedAndCounted.merge(
 );
 export type GetBlogsResponse = z.infer<typeof GetBlogsResponse>;
 
+export const VariantTypeEnum = z.enum([
+  "translation",
+  "ab_test",
+  "format",
+  "audience",
+  "season",
+  "region",
+  "platform",
+  "experiment",
+]);
+export type VariantType = z.infer<typeof VariantTypeEnum>;
+
 export const CreateDraftPathParams = z.object({
   blogId: ID,
 });
@@ -178,6 +190,8 @@ export const CreateDraftRequest = z
     og: OGBasicSchema.optional(),
     ogArticle: OGArticleSchema.optional(),
     blocks: z.array(Block).optional(),
+    variantType: VariantTypeEnum.optional(),
+    variantKey: z.string().optional(),
   })
   .optional();
 export type CreateDraftRequest = z.infer<typeof CreateDraftRequest>;
@@ -200,6 +214,8 @@ export const UpdateDraftRequest = z.object({
   og: OGBasicSchema.optional(),
   ogArticle: OGArticleSchema.optional(),
   blocks: z.array(Block).optional(),
+  variantType: VariantTypeEnum.optional(),
+  variantKey: z.string().optional(),
 });
 export type UpdateDraftRequest = z.infer<typeof UpdateDraftRequest>;
 
@@ -222,6 +238,8 @@ export const Draft = z.object({
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block),
+  variantType: VariantTypeEnum.nullable(),
+  variantKey: z.string().nullable(),
 });
 export type Draft = z.infer<typeof Draft>;
 
@@ -233,6 +251,8 @@ export const Article = z.object({
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block).nullable(),
+  variantType: VariantTypeEnum.nullable(),
+  variantKey: z.string().nullable(),
 });
 export type Article = z.infer<typeof Article>;
 
@@ -281,6 +301,29 @@ export const GetDraftVersionsResponse = PaginatedAndCounted.merge(
   })
 );
 export type GetDraftVersionsResponse = z.infer<typeof GetDraftVersionsResponse>;
+export const GetDraftVariantsPathParams = z.object({
+  blogId: ID,
+  draftId: ID,
+});
+export type GetDraftVariantsPathParams = z.infer<
+  typeof GetDraftVariantsPathParams
+>;
+export const GetDraftVariantsResponse = PaginatedAndCounted.merge(
+  z.object({
+    variants: z.array(Draft),
+  })
+);
+export type GetDraftVariantsResponse = z.infer<typeof GetDraftVariantsResponse>;
+
+export const GetDraftVariantPathParams = z.object({
+  blogId: ID,
+  draftId: ID,
+  variantType: VariantTypeEnum,
+  variantKey: z.string(),
+});
+export type GetDraftVariantPathParams = z.infer<
+  typeof GetDraftVariantPathParams
+>;
 
 export const PublishDraftPathParams = z.object({
   blogId: ID,
@@ -331,23 +374,36 @@ export const GetArticleVersionsPathParams = z.object({
   blogId: ID,
   articleId: ID,
 });
-/*
-// Draft Operations
-POST    /api/blogs/{blogId}/drafts              // Create new draft
-GET     /api/blogs/{blogId}/drafts              // List all drafts
-GET     /api/blogs/{blogId}/drafts/{draftId}    // Get specific draft
-PUT     /api/blogs/{blogId}/drafts/{draftId}    // Update draft
-DELETE  /api/blogs/{blogId}/drafts/{draftId}    // Delete draft
+export type GetArticleVersionsPathParams = z.infer<
+  typeof GetArticleVersionsPathParams
+>;
 
-// Publishing Operations
-POST    /api/blogs/{blogId}/drafts/{draftId}/publish    // Publish a draft
-DELETE  /api/blogs/{blogId}/articles/{articleId}        // Unpublish an article
+export const GetArticleVariantsPathParams = z.object({
+  blogId: ID,
+  articleId: ID,
+});
+export type GetArticleVariantsPathParams = z.infer<
+  typeof GetArticleVariantsPathParams
+>;
 
-// Published Articles
-GET     /api/blogs/{blogId}/articles            // List published articles
-GET     /api/blogs/{blogId}/articles/{articleId}        // Get published article
-GET     /api/blogs/{blogId}/articles/{articleId}/versions  // Get publishing history
-*/
+export const GetArticleVariantsResponse = PaginatedAndCounted.merge(
+  z.object({
+    variants: z.array(Article),
+  })
+);
+export type GetArticleVariantsResponse = z.infer<
+  typeof GetArticleVariantsResponse
+>;
+
+export const GetArticleVariantPathParams = z.object({
+  blogId: ID,
+  articleId: ID,
+  variantType: VariantTypeEnum,
+  variantKey: z.string(),
+});
+export type GetArticleVariantPathParams = z.infer<
+  typeof GetArticleVariantPathParams
+>;
 
 export const billoblogContract = c.router(
   {
@@ -497,6 +553,24 @@ export const billoblogContract = c.router(
         200: GetDraftVersionsResponse,
       },
     },
+    getDraftVariants: {
+      method: "GET",
+      path: "/blogs/:blogId/drafts/:draftId/variants",
+      pathParams: GetDraftVariantsPathParams,
+      query: PaginatedQuery,
+      responses: {
+        200: GetDraftVariantsResponse,
+      },
+    },
+    getDraftVariant: {
+      method: "GET",
+      path: "/blogs/:blogId/drafts/:draftId/variants/:variantType/:variantKey",
+      pathParams: GetDraftVariantPathParams,
+      responses: {
+        200: Draft,
+        404: z.any(),
+      },
+    },
     publishDraft: {
       method: "POST",
       path: "/blogs/:blogId/drafts/:draftId/publish",
@@ -529,6 +603,24 @@ export const billoblogContract = c.router(
       pathParams: GetArticlePathParams,
       responses: {
         200: GetArticleResponse,
+      },
+    },
+    getArticleVariants: {
+      method: "GET",
+      path: "/blogs/:blogId/articles/:articleId/variants",
+      pathParams: GetArticleVariantsPathParams,
+      query: PaginatedQuery,
+      responses: {
+        200: GetArticleVariantsResponse,
+      },
+    },
+    getArticleVariant: {
+      method: "GET",
+      path: "/blogs/:blogId/articles/:articleId/variants/:variantType/:variantKey",
+      pathParams: GetArticleVariantPathParams,
+      responses: {
+        200: Article,
+        404: z.any(),
       },
     },
   },

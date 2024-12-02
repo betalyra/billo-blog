@@ -127,6 +127,18 @@ export const BlogsTable = schema.table("blogs", {
 export type NewBlog = typeof BlogsTable.$inferInsert;
 export type GetBlog = typeof BlogsTable.$inferSelect;
 
+// Extended variant types enum
+export const VariantTypeEnum = schema.enum("variant_type", [
+  "translation", // Different languages
+  "ab_test", // A/B testing variants
+  "format", // Different content formats (long-form, summary, newsletter)
+  "audience", // Content tailored for different audiences
+  "season", // Seasonal variations of content
+  "region", // Region-specific content adaptations
+  "platform", // Platform-specific versions
+  "experiment", // Generic experimentation variant
+]);
+
 export const DraftsTable = schema.table(
   "drafts",
   {
@@ -139,6 +151,8 @@ export const DraftsTable = schema.table(
     slug: text(),
     content: jsonb().notNull().default([]).$type<Block[]>(),
     metadata: jsonb().notNull().default({}).$type<Record<string, any>>(),
+    variantType: VariantTypeEnum(),
+    variantKey: text(),
     version: integer().notNull().default(0),
     created: timestamp({ mode: "date", withTimezone: true })
       .notNull()
@@ -149,8 +163,8 @@ export const DraftsTable = schema.table(
   },
   (t) => [
     // Composite unique constraint on all version-related fields
-    unique().on(t.blogId, t.id, t.version),
-    unique().on(t.blogId, t.slug, t.version),
+    unique().on(t.blogId, t.id, t.variantType, t.variantKey, t.version),
+    unique().on(t.blogId, t.slug, t.variantType, t.variantKey, t.version),
   ]
 );
 
@@ -174,11 +188,17 @@ export const ArticlesTable = schema.table(
     slug: text(),
     content: jsonb().notNull().default([]).$type<Block[]>(),
     metadata: jsonb().notNull().default({}).$type<Record<string, any>>(),
+    variantType: VariantTypeEnum(),
+    variantKey: text(),
     publishedAt: timestamp({ mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [unique().on(t.blogId, t.id), index().on(t.blogId, t.slug)]
+  (t) => [
+    unique().on(t.blogId, t.id, t.variantType, t.variantKey),
+    unique().on(t.blogId, t.slug, t.variantType, t.variantKey),
+    index().on(t.blogId, t.slug, t.variantType, t.variantKey),
+  ]
 );
 export type NewArticle = typeof ArticlesTable.$inferInsert;
 export type GetArticle = typeof ArticlesTable.$inferSelect;
