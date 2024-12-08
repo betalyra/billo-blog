@@ -13,7 +13,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import type { Block } from "@billo-blog/contract";
+import { VariantType, VariantTypeEnum, type Block } from "@billo-blog/contract";
+import { z } from "zod";
 
 export const schema = pgSchema("billo_blog");
 
@@ -128,16 +129,13 @@ export type NewBlog = typeof BlogsTable.$inferInsert;
 export type GetBlog = typeof BlogsTable.$inferSelect;
 
 // Extended variant types enum
-export const VariantTypeEnum = schema.enum("variant_type", [
-  "translation", // Different languages
-  "ab_test", // A/B testing variants
-  "format", // Different content formats (long-form, summary, newsletter)
-  "audience", // Content tailored for different audiences
-  "season", // Seasonal variations of content
-  "region", // Region-specific content adaptations
-  "platform", // Platform-specific versions
-  "experiment", // Generic experimentation variant
-]);
+export const PgVariantTypeEnum = schema.enum("variant_type", VariantTypeEnum);
+
+export const VariantDefinition = z.object({
+  type: VariantType,
+  key: z.string(),
+});
+export type VariantDefinition = z.infer<typeof VariantDefinition>;
 
 export const DraftsTable = schema.table(
   "drafts",
@@ -151,8 +149,7 @@ export const DraftsTable = schema.table(
     slug: text(),
     content: jsonb().notNull().default([]).$type<Block[]>(),
     metadata: jsonb().notNull().default({}).$type<Record<string, any>>(),
-    variantType: VariantTypeEnum(),
-    variantKey: text(),
+    variants: jsonb().$type<VariantDefinition[]>().notNull().default([]),
     version: integer().notNull().default(0),
     created: timestamp({ mode: "date", withTimezone: true })
       .notNull()
@@ -163,8 +160,8 @@ export const DraftsTable = schema.table(
   },
   (t) => [
     // Composite unique constraint on all version-related fields
-    unique().on(t.blogId, t.id, t.variantType, t.variantKey, t.version),
-    unique().on(t.blogId, t.slug, t.variantType, t.variantKey, t.version),
+    unique().on(t.blogId, t.id, t.variants, t.version),
+    unique().on(t.blogId, t.slug, t.variants, t.version),
   ]
 );
 
@@ -188,16 +185,15 @@ export const ArticlesTable = schema.table(
     slug: text(),
     content: jsonb().notNull().default([]).$type<Block[]>(),
     metadata: jsonb().notNull().default({}).$type<Record<string, any>>(),
-    variantType: VariantTypeEnum(),
-    variantKey: text(),
+    variants: jsonb().$type<VariantDefinition[]>().notNull().default([]),
     publishedAt: timestamp({ mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
-    unique().on(t.blogId, t.id, t.variantType, t.variantKey),
-    unique().on(t.blogId, t.slug, t.variantType, t.variantKey),
-    index().on(t.blogId, t.slug, t.variantType, t.variantKey),
+    unique().on(t.blogId, t.id, t.variants),
+    unique().on(t.blogId, t.slug, t.variants),
+    index().on(t.blogId, t.slug, t.variants),
   ]
 );
 export type NewArticle = typeof ArticlesTable.$inferInsert;

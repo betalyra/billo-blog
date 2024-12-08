@@ -648,8 +648,7 @@ export const BlogServiceLive = Layer.effect(
             og: null,
             ogArticle: null,
             blocks: article.content,
-            variantType: article.variantType,
-            variantKey: article.variantKey,
+            variants: article.variants,
           }))
         );
       });
