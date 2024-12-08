@@ -165,17 +165,18 @@ export const GetBlogsResponse = PaginatedAndCounted.merge(
 );
 export type GetBlogsResponse = z.infer<typeof GetBlogsResponse>;
 
-export const VariantTypeEnum = z.enum([
-  "translation",
-  "ab_test",
-  "format",
-  "audience",
-  "season",
-  "region",
-  "platform",
-  "experiment",
-]);
-export type VariantType = z.infer<typeof VariantTypeEnum>;
+export const VariantTypeEnum = [
+  "translation", // Different languages
+  "ab_test", // A/B testing variants
+  "format", // Different content formats (long-form, summary, newsletter)
+  "audience", // Content tailored for different audiences
+  "season", // Seasonal variations of content
+  "region", // Region-specific content adaptations
+  "platform", // Platform-specific versions
+  "experiment", // Generic experimentation variant
+] as const;
+export const VariantType = z.enum(VariantTypeEnum);
+export type VariantType = z.infer<typeof VariantType>;
 
 export const CreateDraftPathParams = z.object({
   blogId: ID,
@@ -190,7 +191,7 @@ export const CreateDraftRequest = z
     og: OGBasicSchema.optional(),
     ogArticle: OGArticleSchema.optional(),
     blocks: z.array(Block).optional(),
-    variantType: VariantTypeEnum.optional(),
+    variantType: VariantType.optional(),
     variantKey: z.string().optional(),
   })
   .optional();
@@ -214,7 +215,7 @@ export const UpdateDraftRequest = z.object({
   og: OGBasicSchema.optional(),
   ogArticle: OGArticleSchema.optional(),
   blocks: z.array(Block).optional(),
-  variantType: VariantTypeEnum.optional(),
+  variantType: VariantType.optional(),
   variantKey: z.string().optional(),
 });
 export type UpdateDraftRequest = z.infer<typeof UpdateDraftRequest>;
@@ -238,7 +239,7 @@ export const Draft = z.object({
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block),
-  variantType: VariantTypeEnum.nullable(),
+  variantType: VariantType.nullable(),
   variantKey: z.string().nullable(),
 });
 export type Draft = z.infer<typeof Draft>;
@@ -251,7 +252,7 @@ export const Article = z.object({
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block).nullable(),
-  variantType: VariantTypeEnum.nullable(),
+  variantType: VariantType.nullable(),
   variantKey: z.string().nullable(),
 });
 export type Article = z.infer<typeof Article>;
@@ -318,7 +319,7 @@ export type GetDraftVariantsResponse = z.infer<typeof GetDraftVariantsResponse>;
 export const GetDraftVariantPathParams = z.object({
   blogId: ID,
   draftId: ID,
-  variantType: VariantTypeEnum,
+  variantType: VariantType,
   variantKey: z.string(),
 });
 export type GetDraftVariantPathParams = z.infer<
@@ -398,7 +399,7 @@ export type GetArticleVariantsResponse = z.infer<
 export const GetArticleVariantPathParams = z.object({
   blogId: ID,
   articleId: ID,
-  variantType: VariantTypeEnum,
+  variantType: VariantType,
   variantKey: z.string(),
 });
 export type GetArticleVariantPathParams = z.infer<
