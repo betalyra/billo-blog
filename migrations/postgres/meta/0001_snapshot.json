@@ -1,5 +1,5 @@
 {
-  "id": "35f68fec-1a50-4b21-8698-d7fde7d47211",
+  "id": "e90a26ee-92b9-49a7-84ac-702b3715589f",
   "prevId": "af1fbe4d-571f-48cc-8c8c-4c55dab808fb",
   "version": "7",
   "dialect": "postgresql",
@@ -207,18 +207,12 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
-        "variant_type": {
-          "name": "variant_type",
-          "type": "variant_type",
-          "typeSchema": "billo_blog",
+        "variant": {
+          "name": "variant",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
-        },
-        "variant_key": {
-          "name": "variant_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "published_at": {
           "name": "published_at",
@@ -229,8 +223,8 @@
         }
       },
       "indexes": {
-        "articles_blog_id_slug_variant_type_variant_key_index": {
-          "name": "articles_blog_id_slug_variant_type_variant_key_index",
+        "articles_blog_id_slug_variant_index": {
+          "name": "articles_blog_id_slug_variant_index",
           "columns": [
             {
               "expression": "blog_id",
@@ -245,13 +239,7 @@
               "nulls": "last"
             },
             {
-              "expression": "variant_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "variant_key",
+              "expression": "variant",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -302,24 +290,22 @@
             "draft_id"
           ]
         },
-        "articles_blogId_id_variantType_variantKey_unique": {
-          "name": "articles_blogId_id_variantType_variantKey_unique",
+        "articles_blogId_id_variant_unique": {
+          "name": "articles_blogId_id_variant_unique",
           "nullsNotDistinct": false,
           "columns": [
             "blog_id",
             "id",
-            "variant_type",
-            "variant_key"
+            "variant"
           ]
         },
-        "articles_blogId_slug_variantType_variantKey_unique": {
-          "name": "articles_blogId_slug_variantType_variantKey_unique",
+        "articles_blogId_slug_variant_unique": {
+          "name": "articles_blogId_slug_variant_unique",
           "nullsNotDistinct": false,
           "columns": [
             "blog_id",
             "slug",
-            "variant_type",
-            "variant_key"
+            "variant"
           ]
         }
       },
@@ -455,18 +441,12 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
-        "variant_type": {
-          "name": "variant_type",
-          "type": "variant_type",
-          "typeSchema": "billo_blog",
+        "variant": {
+          "name": "variant",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": false
-        },
-        "variant_key": {
-          "name": "variant_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "version": {
           "name": "version",
@@ -509,25 +489,23 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "drafts_blogId_id_variantType_variantKey_version_unique": {
-          "name": "drafts_blogId_id_variantType_variantKey_version_unique",
+        "drafts_blogId_id_variant_version_unique": {
+          "name": "drafts_blogId_id_variant_version_unique",
           "nullsNotDistinct": false,
           "columns": [
             "blog_id",
             "id",
-            "variant_type",
-            "variant_key",
+            "variant",
             "version"
           ]
         },
-        "drafts_blogId_slug_variantType_variantKey_version_unique": {
-          "name": "drafts_blogId_slug_variantType_variantKey_version_unique",
+        "drafts_blogId_slug_variant_version_unique": {
+          "name": "drafts_blogId_slug_variant_version_unique",
           "nullsNotDistinct": false,
           "columns": [
             "blog_id",
             "slug",
-            "variant_type",
-            "variant_key",
+            "variant",
             "version"
           ]
         }
@@ -772,26 +750,23 @@
     }
   },
   "enums": {
+    "billo_blog.variant_type": {
+      "name": "variant_type",
+      "schema": "billo_blog",
+      "values": [
+        "lang",
+        "ab_test",
+        "format",
+        "audience",
+        "region"
+      ]
+    },
     "billo_blog.token_permission": {
       "name": "token_permission",
       "schema": "billo_blog",
       "values": [
         "read",
         "write"
-      ]
-    },
-    "billo_blog.variant_type": {
-      "name": "variant_type",
-      "schema": "billo_blog",
-      "values": [
-        "translation",
-        "ab_test",
-        "format",
-        "audience",
-        "season",
-        "region",
-        "platform",
-        "experiment"
       ]
     }
   },

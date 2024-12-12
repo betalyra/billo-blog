@@ -8,7 +8,6 @@ import {
   CreateBlogRequest,
   UpdateBlogPathParams,
   UpdateBlogRequest,
-  GetDraftVersionsPathParams,
   CreateDraftPathParams,
   CreateDraftRequest,
   UpdateDraftPathParams,
@@ -21,7 +20,6 @@ import {
   OAuthValidationResponse,
   GetBlogsResponse,
   CreateDraftResponse,
-  GetDraftVersionsResponse,
   GetArticlesResponse,
   Block,
   DeleteBlogPathParams,
@@ -36,17 +34,18 @@ import {
   CreateApiTokenRequest,
   GetApiTokenResponse,
   GetApiTokenPathParams,
-  UpdateApiTokenResponse,
-  UpdateApiTokenRequest,
-  UpdateApiTokenPathParams,
   GetApiTokensResponse,
   RevokeApiTokenPathParams,
-  GetDraftVariantsPathParams,
-  GetDraftVariantPathParams,
   GetDraftVariantsResponse,
-  GetArticleVariantPathParams,
   GetArticleVariantsResponse,
   GetArticleVariantsPathParams,
+  GetDraftVariantsPathParams,
+  Variant,
+  GetDraftsQuery,
+  GetDraftQuery,
+  CreateDraftVariantResponse,
+  CreateDraftVariantRequest,
+  CreateDraftVariantPathParams,
 } from "@billo-blog/contract";
 import { GitHubService } from "../oauth/github.js";
 import { generateState } from "arctic";
@@ -55,23 +54,20 @@ import { SessionService, type SessionWithUser } from "../../session/service.js";
 import { JWTService } from "../auth/token.js";
 import { TokenProvider } from "../auth/token-provider.js";
 import {
-  InvalidTokenError,
-  TokenExpiredError,
+  ConflictError,
   UnauthorizedError,
+  type StandardError,
 } from "../../errors/types.js";
 import { BlogStoreService } from "../store/blog/service.js";
 import * as store from "../store/blog/service.js";
 import { addDays } from "date-fns";
+import type { VariantDefinition } from "../../db/postgres/schema.js";
 
 export type CreateOAuthResponse = {
   url: URL;
   state: string;
 };
-export type StandardError =
-  | Error
-  | UnauthorizedError
-  | InvalidTokenError
-  | TokenExpiredError;
+
 export type IBlogService = {
   createOAuth: (
     pathParams: CreateOAuthPathParams
@@ -116,47 +112,55 @@ export type IBlogService = {
     pathParams: CreateDraftPathParams,
     body: CreateDraftRequest
   ) => Effect.Effect<CreateDraftResponse, StandardError, TokenProvider>;
+  createDraftVariant: (
+    pathParams: CreateDraftVariantPathParams,
+    body: CreateDraftVariantRequest
+  ) => Effect.Effect<
+    CreateDraftVariantResponse,
+    StandardError | ConflictError,
+    TokenProvider
+  >;
   publishDraft: (
-    pathParams: PublishDraftPathParams
+    pathParams: PublishDraftPathParams,
+    query: Variant
   ) => Effect.Effect<PublishDraftResponse, StandardError, TokenProvider>;
   getDrafts: (
     pathParams: GetDraftsPathParams,
-    query: PaginatedQuery
+    query: GetDraftsQuery
   ) => Effect.Effect<GetDraftsResponse, StandardError, TokenProvider>;
   getDraft: (
-    pathParams: GetDraftPathParams
+    pathParams: GetDraftPathParams,
+    query: GetDraftQuery
   ) => Effect.Effect<Option.Option<Draft>, StandardError, TokenProvider>;
   getDraftVariants: (
     pathParams: GetDraftVariantsPathParams,
     query: PaginatedQuery
   ) => Effect.Effect<GetDraftVariantsResponse, StandardError, TokenProvider>;
-  getDraftVariant: (
-    pathParams: GetDraftVariantPathParams
-  ) => Effect.Effect<Option.Option<Draft>, StandardError, TokenProvider>;
   updateDraft: (
     pathParams: UpdateDraftPathParams,
+    query: Variant,
     body: UpdateDraftRequest
   ) => Effect.Effect<Draft, StandardError, TokenProvider>;
   deleteDraft: (
-    pathParams: DeleteDraftPathParams
+    pathParams: DeleteDraftPathParams,
+    query: Variant
   ) => Effect.Effect<void, StandardError, TokenProvider>;
   deleteArticle: (
-    pathParams: DeleteArticlePathParams
+    pathParams: DeleteArticlePathParams,
+    query: Variant
   ) => Effect.Effect<void, StandardError, TokenProvider>;
   getArticles: (
     pathParams: GetArticlesPathParams,
-    query: PaginatedQuery
+    query: PaginatedQuery & Variant
   ) => Effect.Effect<GetArticlesResponse, StandardError, TokenProvider>;
   getArticle: (
-    pathParams: GetArticlePathParams
+    pathParams: GetArticlePathParams,
+    query: Variant
   ) => Effect.Effect<Option.Option<Article>, StandardError, TokenProvider>;
   getArticleVariants: (
     pathParams: GetArticleVariantsPathParams,
     query: PaginatedQuery
   ) => Effect.Effect<GetArticleVariantsResponse, StandardError, TokenProvider>;
-  getArticleVariant: (
-    pathParams: GetArticleVariantPathParams
-  ) => Effect.Effect<Option.Option<Article>, StandardError, TokenProvider>;
 };
 
 export class BlogService extends Context.Tag("BlogService")<
@@ -414,6 +418,7 @@ export const BlogServiceLive = Layer.effect(
             blogInternalId: blog.value.internalId,
             page: query.page ?? 0,
             limit: query.limit ?? 10,
+            variant: toVariantDefinition(query),
           });
         return {
           drafts: drafts.map((draft) => ({
@@ -426,7 +431,7 @@ export const BlogServiceLive = Layer.effect(
           page,
         };
       });
-    const getDraft: IBlogService["getDraft"] = (pathParams) =>
+    const getDraft: IBlogService["getDraft"] = (pathParams, query) =>
       Effect.gen(function* () {
         const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
@@ -442,6 +447,7 @@ export const BlogServiceLive = Layer.effect(
         const draft = yield* blogStoreService.getDraft({
           blogInternalId: blog.value.internalId,
           id: pathParams.draftId,
+          variant: toVariantDefinition(query),
         });
         return draft.pipe(
           Option.map((draft) => ({
@@ -452,8 +458,7 @@ export const BlogServiceLive = Layer.effect(
             og: null,
             ogArticle: null,
             blocks: draft.content as Block[],
-            variantType: draft.variantType,
-            variantKey: draft.variantKey,
+            variant: toVariant(draft.variant),
           }))
         );
       });
@@ -462,8 +467,6 @@ export const BlogServiceLive = Layer.effect(
       pathParams,
       query
     ) => Effect.fail(new Error("Not implemented"));
-    const getDraftVariant: IBlogService["getDraftVariant"] = (pathParams) =>
-      Effect.fail(new Error("Not implemented"));
 
     const createDraft: IBlogService["createDraft"] = (pathParams, body) =>
       Effect.gen(function* () {
@@ -484,6 +487,39 @@ export const BlogServiceLive = Layer.effect(
           name: body?.name,
           slug: body?.slug,
           blocks: body?.blocks,
+          variant: toVariantDefinition(body?.variant),
+        });
+        if (Option.isNone(draft)) {
+          return yield* Effect.fail(new Error("Draft not created"));
+        }
+        return {
+          draftId: draft.value.id,
+        };
+      });
+    const createDraftVariant: IBlogService["createDraftVariant"] = (
+      pathParams,
+      body
+    ) =>
+      Effect.gen(function* () {
+        const { user } = yield* requireUser;
+        const blog = yield* blogStoreService.getBlog({
+          ownerId: user.internalId,
+          id: pathParams.blogId,
+        });
+        if (Option.isNone(blog)) {
+          return yield* Effect.fail(new Error("Blog not found"));
+        }
+        if (user.internalId !== blog.value.ownerId) {
+          return yield* Effect.fail(new UnauthorizedError());
+        }
+
+        const draft = yield* blogStoreService.createDraftVariant({
+          blogInternalId: blog.value.internalId,
+          draftId: pathParams.draftId,
+          name: body?.name,
+          slug: body?.slug,
+          blocks: body?.blocks,
+          variant: toVariantDefinition(body?.variant),
         });
         if (Option.isNone(draft)) {
           return yield* Effect.fail(new Error("Draft not created"));
@@ -493,7 +529,11 @@ export const BlogServiceLive = Layer.effect(
         };
       });
 
-    const updateDraft: IBlogService["updateDraft"] = (pathParams, body) =>
+    const updateDraft: IBlogService["updateDraft"] = (
+      pathParams,
+      query,
+      body
+    ) =>
       Effect.gen(function* () {
         const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
@@ -512,6 +552,7 @@ export const BlogServiceLive = Layer.effect(
           blocks: body?.blocks,
           name: body?.name,
           slug: body?.slug,
+          variant: toVariantDefinition(query),
         });
         if (Option.isNone(draft)) {
           return yield* Effect.fail(new Error("Draft not found"));
@@ -524,11 +565,10 @@ export const BlogServiceLive = Layer.effect(
           og: null,
           ogArticle: null,
           blocks: draft.value.content,
-          variantType: draft.value.variantType,
-          variantKey: draft.value.variantKey,
+          variant: toVariant(draft.value.variant),
         };
       });
-    const deleteDraft: IBlogService["deleteDraft"] = (pathParams) =>
+    const deleteDraft: IBlogService["deleteDraft"] = (pathParams, query) =>
       Effect.gen(function* () {
         const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
@@ -541,10 +581,11 @@ export const BlogServiceLive = Layer.effect(
         yield* blogStoreService.deleteDraft({
           blogInternalId: blog.value.internalId,
           draftId: pathParams.draftId,
+          variant: toVariantDefinition(query),
         });
       });
 
-    const publishDraft: IBlogService["publishDraft"] = (pathParams) =>
+    const publishDraft: IBlogService["publishDraft"] = (pathParams, query) =>
       Effect.gen(function* () {
         const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
@@ -560,6 +601,7 @@ export const BlogServiceLive = Layer.effect(
         const draft = yield* blogStoreService.getDraft({
           blogInternalId: blog.value.internalId,
           id: pathParams.draftId,
+          variant: toVariantDefinition(query),
         });
         if (Option.isNone(draft)) {
           return yield* Effect.fail(new Error("Draft not found"));
@@ -572,13 +614,14 @@ export const BlogServiceLive = Layer.effect(
           slug: draft.value.slug ?? undefined,
           content: draft.value.content,
           metadata: draft.value.metadata,
+          variant: toVariantDefinition(query),
         });
         return {
           articleId: article.articleId,
         };
       });
 
-    const deleteArticle: IBlogService["deleteArticle"] = (pathParams) =>
+    const deleteArticle: IBlogService["deleteArticle"] = (pathParams, query) =>
       Effect.gen(function* () {
         const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
@@ -594,6 +637,7 @@ export const BlogServiceLive = Layer.effect(
         yield* blogStoreService.deleteArticle({
           blogInternalId: blog.value.internalId,
           id: pathParams.articleId,
+          variant: toVariantDefinition(query),
         });
       });
 
@@ -612,6 +656,7 @@ export const BlogServiceLive = Layer.effect(
             blogInternalId: blog.value.internalId,
             page: query.page ?? 0,
             limit: query.limit ?? 10,
+            variant: toVariantDefinition(query),
           });
         return {
           articles: articles.map((article: store.GetArticleSummary) => ({
@@ -624,7 +669,7 @@ export const BlogServiceLive = Layer.effect(
           page,
         };
       });
-    const getArticle: IBlogService["getArticle"] = (pathParams) =>
+    const getArticle: IBlogService["getArticle"] = (pathParams, query) =>
       Effect.gen(function* () {
         const { user } = yield* requireUser;
         const blog = yield* blogStoreService.getBlog({
@@ -637,6 +682,7 @@ export const BlogServiceLive = Layer.effect(
         const article = yield* blogStoreService.getArticle({
           blogInternalId: blog.value.internalId,
           id: pathParams.articleId,
+          variant: toVariantDefinition(query),
         });
         return article.pipe(
           Option.map((article) => ({
@@ -648,7 +694,7 @@ export const BlogServiceLive = Layer.effect(
             og: null,
             ogArticle: null,
             blocks: article.content,
-            variants: article.variants,
+            variant: toVariant(article.variant),
           }))
         );
       });
@@ -657,9 +703,6 @@ export const BlogServiceLive = Layer.effect(
       pathParams,
       query
     ) => Effect.fail(new Error("Not implemented"));
-
-    const getArticleVariant: IBlogService["getArticleVariant"] = (pathParams) =>
-      Effect.fail(new Error("Not implemented"));
 
     return {
       createOAuth,
@@ -676,8 +719,8 @@ export const BlogServiceLive = Layer.effect(
       getDrafts,
       getDraft,
       getDraftVariants,
-      getDraftVariant,
       createDraft,
+      createDraftVariant,
       updateDraft,
       deleteDraft,
       publishDraft,
@@ -685,7 +728,25 @@ export const BlogServiceLive = Layer.effect(
       getArticles,
       getArticle,
       getArticleVariants,
-      getArticleVariant,
     };
   })
 );
+function toVariant(variant: VariantDefinition): Variant {
+  return {
+    lang: variant.lang,
+    abTest: variant.ab_test,
+    format: variant.format,
+    audience: variant.audience,
+    region: variant.region,
+  };
+}
+export const toVariantDefinition = (variant?: Variant): VariantDefinition => {
+  const definition: VariantDefinition = {
+    lang: variant?.lang,
+    ab_test: variant?.abTest,
+    format: variant?.format,
+    audience: variant?.audience,
+    region: variant?.region,
+  };
+  return definition;
+};

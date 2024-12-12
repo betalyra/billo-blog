@@ -7,7 +7,6 @@ import {
   GitHubServiceLive,
   EnvServiceLive,
   BlogService,
-  DrizzlePostgresProviderLive,
   DrizzlePostgresProvider,
 } from "@billo-blog/core";
 import { fastifyCookie } from "@fastify/cookie";
@@ -335,9 +334,105 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
-    getDrafts: async ({
-      params: { blogId },
-      query: { limit, page },
+    createDraftVariant: async ({
+      params: { blogId, draftId },
+      body,
+      request,
+    }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } } as const;
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { createDraftVariant } = yield* BlogService;
+        return yield* createDraftVariant({ blogId, draftId }, body);
+      }).pipe(
+        Effect.map((result) => ({ status: 200, body: result } as const)),
+        Effect.catchTag("ConflictError", (e) =>
+          Effect.succeed({
+            status: 409,
+            body: { status: 409, message: "Conflict" },
+          } as const)
+        ),
+        Effect.catchAll((e) =>
+          Effect.succeed({
+            status: 500,
+            body: { error: "Internal server error" },
+          } as const)
+        )
+      );
+
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      return result;
+    },
+    getDrafts: async ({ params: { blogId }, query, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getDrafts } = yield* BlogService;
+        return yield* getDrafts({ blogId }, query);
+      });
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      return {
+        status: 200,
+        body: result,
+      };
+    },
+    getDraft: async ({ params: { blogId, draftId }, query, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+      const program = Effect.gen(function* () {
+        const { getDraft } = yield* BlogService;
+        return yield* getDraft({ blogId, draftId }, query);
+      });
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Option.isNone(result)) {
+        return { status: 404, body: undefined };
+      }
+
+      return {
+        status: 200,
+        body: result.value,
+      };
+    },
+    updateDraft: async ({
+      params: { blogId, draftId },
+      query,
+      body,
       request,
     }) => {
       const token = request.bearerToken;
@@ -353,62 +448,8 @@ export default fp(async function (fastify: FastifyInstance) {
         )
       );
       const program = Effect.gen(function* () {
-        const { getDrafts } = yield* BlogService;
-        return yield* getDrafts({ blogId }, { limit, page });
-      });
-      const runnable = Effect.provide(program, Deps);
-      const result = await Effect.runPromise(runnable);
-
-      return {
-        status: 200,
-        body: result,
-      };
-    },
-    getDraft: async ({ params: { blogId, draftId }, request }) => {
-      const token = request.bearerToken;
-      if (!token) {
-        return { status: 401, body: { error: "Unauthorized" } };
-      }
-
-      const Deps = Dependencies.pipe(
-        Layer.provideMerge(
-          Layer.succeed(TokenProvider)({
-            accessToken: Option.some(token),
-          })
-        )
-      );
-      const program = Effect.gen(function* () {
-        const { getDraft } = yield* BlogService;
-        return yield* getDraft({ blogId, draftId });
-      });
-      const runnable = Effect.provide(program, Deps);
-      const result = await Effect.runPromise(runnable);
-
-      if (Option.isNone(result)) {
-        return { status: 404, body: { error: "Draft not found" } };
-      }
-
-      return {
-        status: 200,
-        body: result.value,
-      };
-    },
-    updateDraft: async ({ params: { blogId, draftId }, body, request }) => {
-      const token = request.bearerToken;
-      if (!token) {
-        return { status: 401, body: { error: "Unauthorized" } };
-      }
-
-      const Deps = Dependencies.pipe(
-        Layer.provideMerge(
-          Layer.succeed(TokenProvider)({
-            accessToken: Option.some(token),
-          })
-        )
-      );
-      const program = Effect.gen(function* () {
         const { updateDraft } = yield* BlogService;
-        return yield* updateDraft({ blogId, draftId }, body);
+        return yield* updateDraft({ blogId, draftId }, query, body);
       }).pipe(Effect.either);
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
@@ -425,7 +466,7 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
-    deleteDraft: async ({ params: { blogId, draftId }, request }) => {
+    deleteDraft: async ({ params: { blogId, draftId }, query, request }) => {
       const token = request.bearerToken;
       if (!token) {
         return { status: 401, body: { error: "Unauthorized" } };
@@ -441,7 +482,7 @@ export default fp(async function (fastify: FastifyInstance) {
 
       const program = Effect.gen(function* () {
         const { deleteDraft } = yield* BlogService;
-        return yield* deleteDraft({ blogId, draftId });
+        return yield* deleteDraft({ blogId, draftId }, query);
       }).pipe(Effect.either);
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
@@ -458,6 +499,17 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
+    getDraftVariants: async ({ params: { blogId, draftId }, query }) => {
+      return {
+        status: 200,
+        body: {
+          count: 1,
+          limit: 10,
+          page: 1,
+          variants: [],
+        },
+      };
+    },
     getDraftVersions: async ({ params: { blogId, draftId } }) => {
       return {
         status: 200,
@@ -469,7 +521,7 @@ export default fp(async function (fastify: FastifyInstance) {
         },
       };
     },
-    publishDraft: async ({ params: { blogId, draftId }, request }) => {
+    publishDraft: async ({ params: { blogId, draftId }, query, request }) => {
       const token = request.bearerToken;
       if (!token) {
         return { status: 401, body: { error: "Unauthorized" } };
@@ -485,7 +537,7 @@ export default fp(async function (fastify: FastifyInstance) {
 
       const program = Effect.gen(function* () {
         const { publishDraft } = yield* BlogService;
-        return yield* publishDraft({ blogId, draftId });
+        return yield* publishDraft({ blogId, draftId }, query);
       }).pipe(Effect.either);
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);
@@ -502,42 +554,9 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
-    deleteArticle: async ({ params: { blogId, articleId }, request }) => {
-      const token = request.bearerToken;
-      if (!token) {
-        return { status: 401, body: { error: "Unauthorized" } };
-      }
-
-      const Deps = Dependencies.pipe(
-        Layer.provideMerge(
-          Layer.succeed(TokenProvider)({
-            accessToken: Option.some(token),
-          })
-        )
-      );
-
-      const program = Effect.gen(function* () {
-        const { deleteArticle } = yield* BlogService;
-        return yield* deleteArticle({ blogId, articleId });
-      }).pipe(Effect.either);
-      const runnable = Effect.provide(program, Deps);
-      const result = await Effect.runPromise(runnable);
-
-      if (Either.isLeft(result)) {
-        fastify.log.error(result.left);
-        return {
-          status: 500,
-          body: { error: "Internal server error" },
-        };
-      }
-      return {
-        status: 200,
-        body: {},
-      };
-    },
-    getArticles: async ({
-      params: { blogId },
-      query: { limit, page },
+    deleteArticle: async ({
+      params: { blogId, articleId },
+      query,
       request,
     }) => {
       const token = request.bearerToken;
@@ -554,8 +573,41 @@ export default fp(async function (fastify: FastifyInstance) {
       );
 
       const program = Effect.gen(function* () {
+        const { deleteArticle } = yield* BlogService;
+        return yield* deleteArticle({ blogId, articleId }, query);
+      }).pipe(Effect.either);
+      const runnable = Effect.provide(program, Deps);
+      const result = await Effect.runPromise(runnable);
+
+      if (Either.isLeft(result)) {
+        fastify.log.error(result.left);
+        return {
+          status: 500,
+          body: { error: "Internal server error" },
+        };
+      }
+      return {
+        status: 200,
+        body: undefined,
+      };
+    },
+    getArticles: async ({ params: { blogId }, query, request }) => {
+      const token = request.bearerToken;
+      if (!token) {
+        return { status: 401, body: { error: "Unauthorized" } };
+      }
+
+      const Deps = Dependencies.pipe(
+        Layer.provideMerge(
+          Layer.succeed(TokenProvider)({
+            accessToken: Option.some(token),
+          })
+        )
+      );
+
+      const program = Effect.gen(function* () {
         const { getArticles } = yield* BlogService;
-        return yield* getArticles({ blogId }, { limit, page });
+        return yield* getArticles({ blogId }, query);
       }).pipe(Effect.either);
 
       const runnable = Effect.provide(program, Deps);
@@ -573,7 +625,18 @@ export default fp(async function (fastify: FastifyInstance) {
         body: result.right,
       };
     },
-    getArticle: async ({ params: { blogId, articleId }, request }) => {
+    getArticleVariants: async ({ params: { blogId, articleId }, query }) => {
+      return {
+        status: 200,
+        body: {
+          count: 1,
+          limit: 10,
+          page: 1,
+          variants: [],
+        },
+      };
+    },
+    getArticle: async ({ params: { blogId, articleId }, query, request }) => {
       const token = request.bearerToken;
       if (!token) {
         return { status: 401, body: { error: "Unauthorized" } };
@@ -589,7 +652,7 @@ export default fp(async function (fastify: FastifyInstance) {
 
       const program = Effect.gen(function* () {
         const { getArticle } = yield* BlogService;
-        return yield* getArticle({ blogId, articleId });
+        return yield* getArticle({ blogId, articleId }, query);
       }).pipe(Effect.either);
       const runnable = Effect.provide(program, Deps);
       const result = await Effect.runPromise(runnable);

@@ -2,7 +2,9 @@ import { initContract } from "@ts-rest/core";
 import { z } from "zod";
 import { OGArticleSchema, OGBasicSchema } from "../types/opengraph.js";
 import { Block } from "../types/blocknote.js";
+import { LanguageTag } from "../types/base.js";
 export * from "../types/blocknote.js";
+
 const c = initContract();
 
 export const ID = z.string().cuid2();
@@ -165,18 +167,14 @@ export const GetBlogsResponse = PaginatedAndCounted.merge(
 );
 export type GetBlogsResponse = z.infer<typeof GetBlogsResponse>;
 
-export const VariantTypeEnum = [
-  "translation", // Different languages
-  "ab_test", // A/B testing variants
-  "format", // Different content formats (long-form, summary, newsletter)
-  "audience", // Content tailored for different audiences
-  "season", // Seasonal variations of content
-  "region", // Region-specific content adaptations
-  "platform", // Platform-specific versions
-  "experiment", // Generic experimentation variant
-] as const;
-export const VariantType = z.enum(VariantTypeEnum);
-export type VariantType = z.infer<typeof VariantType>;
+export const Variant = z.object({
+  lang: LanguageTag.optional(),
+  abTest: z.string().optional(),
+  format: z.string().optional(),
+  audience: z.string().optional(),
+  region: z.string().optional(),
+});
+export type Variant = z.infer<typeof Variant>;
 
 export const CreateDraftPathParams = z.object({
   blogId: ID,
@@ -191,8 +189,7 @@ export const CreateDraftRequest = z
     og: OGBasicSchema.optional(),
     ogArticle: OGArticleSchema.optional(),
     blocks: z.array(Block).optional(),
-    variantType: VariantType.optional(),
-    variantKey: z.string().optional(),
+    variant: Variant.optional(),
   })
   .optional();
 export type CreateDraftRequest = z.infer<typeof CreateDraftRequest>;
@@ -201,6 +198,34 @@ export const CreateDraftResponse = z.object({
   draftId: ID,
 });
 export type CreateDraftResponse = z.infer<typeof CreateDraftResponse>;
+
+export const CreateDraftVariantPathParams = z.object({
+  blogId: ID,
+  draftId: ID,
+});
+export type CreateDraftVariantPathParams = z.infer<
+  typeof CreateDraftVariantPathParams
+>;
+
+export const CreateDraftVariantRequest = z.object({
+  name: z.string().optional(),
+  slug: z.string().optional(),
+  authors: ID.array().optional(),
+  og: OGBasicSchema.optional(),
+  ogArticle: OGArticleSchema.optional(),
+  blocks: z.array(Block).optional(),
+  variant: Variant.optional(),
+});
+export type CreateDraftVariantRequest = z.infer<
+  typeof CreateDraftVariantRequest
+>;
+
+export const CreateDraftVariantResponse = z.object({
+  draftId: ID,
+});
+export type CreateDraftVariantResponse = z.infer<
+  typeof CreateDraftVariantResponse
+>;
 
 export const UpdateDraftPathParams = z.object({
   blogId: ID,
@@ -215,8 +240,6 @@ export const UpdateDraftRequest = z.object({
   og: OGBasicSchema.optional(),
   ogArticle: OGArticleSchema.optional(),
   blocks: z.array(Block).optional(),
-  variantType: VariantType.optional(),
-  variantKey: z.string().optional(),
 });
 export type UpdateDraftRequest = z.infer<typeof UpdateDraftRequest>;
 
@@ -239,8 +262,7 @@ export const Draft = z.object({
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block),
-  variantType: VariantType.nullable(),
-  variantKey: z.string().nullable(),
+  variant: Variant.nullable(),
 });
 export type Draft = z.infer<typeof Draft>;
 
@@ -252,8 +274,7 @@ export const Article = z.object({
   og: OGBasicSchema.nullable(),
   ogArticle: OGArticleSchema.nullable(),
   blocks: z.array(Block).nullable(),
-  variantType: VariantType.nullable(),
-  variantKey: z.string().nullable(),
+  variant: Variant.nullable(),
 });
 export type Article = z.infer<typeof Article>;
 
@@ -261,6 +282,9 @@ export const GetDraftsPathParams = z.object({
   blogId: ID,
 });
 export type GetDraftsPathParams = z.infer<typeof GetDraftsPathParams>;
+
+export const GetDraftsQuery = PaginatedQuery.merge(Variant);
+export type GetDraftsQuery = z.infer<typeof GetDraftsQuery>;
 
 export const DraftSummary = z.object({
   draftId: ID,
@@ -280,6 +304,9 @@ export const GetDraftPathParams = z.object({
   draftId: ID,
 });
 export type GetDraftPathParams = z.infer<typeof GetDraftPathParams>;
+
+export const GetDraftQuery = Variant;
+export type GetDraftQuery = z.infer<typeof GetDraftQuery>;
 
 export const GetDraftVersionsPathParams = z.object({
   blogId: ID,
@@ -315,16 +342,6 @@ export const GetDraftVariantsResponse = PaginatedAndCounted.merge(
   })
 );
 export type GetDraftVariantsResponse = z.infer<typeof GetDraftVariantsResponse>;
-
-export const GetDraftVariantPathParams = z.object({
-  blogId: ID,
-  draftId: ID,
-  variantType: VariantType,
-  variantKey: z.string(),
-});
-export type GetDraftVariantPathParams = z.infer<
-  typeof GetDraftVariantPathParams
->;
 
 export const PublishDraftPathParams = z.object({
   blogId: ID,
@@ -396,15 +413,11 @@ export type GetArticleVariantsResponse = z.infer<
   typeof GetArticleVariantsResponse
 >;
 
-export const GetArticleVariantPathParams = z.object({
-  blogId: ID,
-  articleId: ID,
-  variantType: VariantType,
-  variantKey: z.string(),
+export const ErrorResponse = z.object({
+  status: z.number(),
+  message: z.string(),
 });
-export type GetArticleVariantPathParams = z.infer<
-  typeof GetArticleVariantPathParams
->;
+export type ErrorResponse = z.infer<typeof ErrorResponse>;
 
 export const billoblogContract = c.router(
   {
@@ -510,11 +523,21 @@ export const billoblogContract = c.router(
         200: CreateDraftResponse,
       },
     },
+    createDraftVariant: {
+      method: "POST",
+      path: "/blogs/:blogId/drafts/:draftId/variants",
+      pathParams: CreateDraftVariantPathParams,
+      body: CreateDraftVariantRequest,
+      responses: {
+        200: CreateDraftVariantResponse,
+        409: ErrorResponse,
+      },
+    },
     getDrafts: {
       method: "GET",
       path: "/blogs/:blogId/drafts",
       pathParams: GetDraftsPathParams,
-      query: PaginatedQuery,
+      query: GetDraftsQuery,
       responses: {
         200: GetDraftsResponse,
       },
@@ -523,15 +546,17 @@ export const billoblogContract = c.router(
       method: "GET",
       path: "/blogs/:blogId/drafts/:draftId",
       pathParams: GetDraftPathParams,
+      query: GetDraftQuery,
       responses: {
         200: Draft,
-        404: z.any(),
+        404: z.void(),
       },
     },
     updateDraft: {
       method: "PUT",
       path: "/blogs/:blogId/drafts/:draftId",
       pathParams: UpdateDraftPathParams,
+      query: Variant,
       body: UpdateDraftRequest,
       responses: {
         200: UpdateDraftResponse,
@@ -541,8 +566,9 @@ export const billoblogContract = c.router(
       method: "DELETE",
       path: "/blogs/:blogId/drafts/:draftId",
       pathParams: DeleteDraftPathParams,
+      query: Variant,
       responses: {
-        200: z.any(),
+        200: z.void(),
       },
     },
     getDraftVersions: {
@@ -563,19 +589,11 @@ export const billoblogContract = c.router(
         200: GetDraftVariantsResponse,
       },
     },
-    getDraftVariant: {
-      method: "GET",
-      path: "/blogs/:blogId/drafts/:draftId/variants/:variantType/:variantKey",
-      pathParams: GetDraftVariantPathParams,
-      responses: {
-        200: Draft,
-        404: z.any(),
-      },
-    },
     publishDraft: {
       method: "POST",
       path: "/blogs/:blogId/drafts/:draftId/publish",
       pathParams: PublishDraftPathParams,
+      query: Variant,
       body: z.any().optional(),
       responses: {
         200: PublishDraftResponse,
@@ -585,8 +603,9 @@ export const billoblogContract = c.router(
       method: "DELETE",
       path: "/blogs/:blogId/articles/:articleId",
       pathParams: DeleteArticlePathParams,
+      query: Variant,
       responses: {
-        200: z.any(),
+        200: z.void(),
       },
     },
     getArticles: {
@@ -602,6 +621,7 @@ export const billoblogContract = c.router(
       method: "GET",
       path: "/blogs/:blogId/articles/:articleId",
       pathParams: GetArticlePathParams,
+      query: Variant,
       responses: {
         200: GetArticleResponse,
       },
@@ -613,15 +633,6 @@ export const billoblogContract = c.router(
       query: PaginatedQuery,
       responses: {
         200: GetArticleVariantsResponse,
-      },
-    },
-    getArticleVariant: {
-      method: "GET",
-      path: "/blogs/:blogId/articles/:articleId/variants/:variantType/:variantKey",
-      pathParams: GetArticleVariantPathParams,
-      responses: {
-        200: Article,
-        404: z.any(),
       },
     },
   },
