@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Locale } from "./base.js";
+import { LanguageTag } from "./base.js";
 
 // Basic OG Schema
 export const OGBasicSchema = z.object({
@@ -24,7 +24,7 @@ export const OGBasicSchema = z.object({
     ])
     .default("article"),
   siteName: z.string().nullable(),
-  locale: Locale,
+  locale: LanguageTag,
 });
 
 // Author Schema
