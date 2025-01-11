@@ -691,26 +691,36 @@ const getVariantsConstraints = (variant: VariantDefinition) => {
   // Only add constraints for defined (non-undefined) variant attributes
   if (variant.lang) {
     constraints.push(sql`${DraftsTable.variant}->>'lang' = ${variant.lang}`);
+  } else {
+    constraints.push(sql`${DraftsTable.variant}->>'lang' IS NULL`);
   }
   if (variant.ab_test) {
     constraints.push(
       sql`${DraftsTable.variant}->>'ab_test' = ${variant.ab_test}`
     );
+  } else {
+    constraints.push(sql`${DraftsTable.variant}->>'ab_test' IS NULL`);
   }
   if (variant.format) {
     constraints.push(
       sql`${DraftsTable.variant}->>'format' = ${variant.format}`
     );
+  } else {
+    constraints.push(sql`${DraftsTable.variant}->>'format' IS NULL`);
   }
   if (variant.audience) {
     constraints.push(
       sql`${DraftsTable.variant}->>'audience' = ${variant.audience}`
     );
+  } else {
+    constraints.push(sql`${DraftsTable.variant}->>'audience' IS NULL`);
   }
   if (variant.region) {
     constraints.push(
       sql`${DraftsTable.variant}->>'region' = ${variant.region}`
     );
+  } else {
+    constraints.push(sql`${DraftsTable.variant}->>'region' IS NULL`);
   }
 
   return constraints;
